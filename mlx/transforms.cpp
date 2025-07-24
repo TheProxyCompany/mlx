@@ -331,7 +331,7 @@ void eval(
     return;
   }
 
-  eval_impl(std::move(outputs), false, s).event().wait();
+  eval_impl(std::move(outputs), false).wait();
 }
 
 std::pair<std::vector<array>, std::vector<array>> vjp(
