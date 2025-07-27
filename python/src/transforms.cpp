@@ -1145,12 +1145,19 @@ void init_transforms(nb::module_& m) {
           s = nb::cast<mx::StreamOrDevice>(kwargs["stream"]);
         }
 
+      [](const nb::args& args, const nb::kwargs& kwargs) {
+        std::optional<mx::StreamOrDevice> s = std::nullopt;
+        if (kwargs.contains("stream")) {
+          s = nb::cast<mx::StreamOrDevice>(kwargs["stream"]);
+        }
+
         std::vector<mx::array> arrays = tree_flatten(args, false);
         {
           nb::gil_scoped_release nogil;
           eval(arrays, s); // Call our modified C++ function
         }
       },
+      nb::arg(),
       nb::sig("def eval(*args, stream: Stream | Device | None = None) -> None"),
       R"pbdoc(
         Evaluate an :class:`array` or tree of :class:`array`.
@@ -1177,6 +1184,7 @@ void init_transforms(nb::module_& m) {
           async_eval(arrays, s); // Call our modified C++ function
         }
       },
+      nb::arg(),
       nb::sig("def async_eval(*args, stream: Stream | Device | None = None)"),
       R"pbdoc(
         Asynchronously evaluate an :class:`array` or tree of :class:`array`.
