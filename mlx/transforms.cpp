@@ -49,15 +49,25 @@ std::vector<std::pair<char, char>>& detail::InTracing::trace_stack() {
 int detail::InTracing::grad_counter{0};
 int detail::RetainGraph::tracing_counter{0};
 
-array eval_impl(std::vector<array> outputs, bool async) {
+array eval_impl(
+  std::vector<array> outputs,
+  bool async,
+  const std::optional<StreamOrDevice>& s = std::nullopt
+) {
   std::deque<array> tape;
-
-  // Make an effort to choose a good output stream
+  // if stream is provided, use it, otherwise use default stream
   Stream stream = default_stream(default_device());
-  for (auto& o : outputs) {
-    if (o.status() == array::Status::unscheduled && o.has_primitive()) {
-      stream = o.primitive().stream();
-      break;
+
+  if (s.has_value()) {
+    // if stream is provided, use it
+    stream = to_stream(s.value());
+  } else {
+    // use the stream of the first unscheduled array with a primitive
+    for (auto& o : outputs) {
+      if (o.status() == array::Status::unscheduled && o.has_primitive()) {
+        stream = o.primitive().stream();
+        break;
+      }
     }
   }
 
@@ -274,7 +284,10 @@ array eval_impl(std::vector<array> outputs, bool async) {
   return synchronizer;
 }
 
-void async_eval(std::vector<array> outputs) {
+void async_eval(
+  std::vector<array> outputs,
+  const std::optional<StreamOrDevice>& s
+) {
   if (outputs.empty()) {
     return;
   }
@@ -285,10 +298,13 @@ void async_eval(std::vector<array> outputs) {
     return;
   }
 
-  eval_impl(std::move(outputs), true);
+  eval_impl(std::move(outputs), true, s);
 }
 
-void eval(std::vector<array> outputs) {
+void eval(
+  std::vector<array> outputs,
+  const std::optional<StreamOrDevice>& s
+) {
   if (outputs.empty()) {
     return;
   }
@@ -302,7 +318,7 @@ void eval(std::vector<array> outputs) {
     return;
   }
 
-  eval_impl(std::move(outputs), false).event().wait();
+  eval_impl(std::move(outputs), false, s).event().wait();
 }
 
 std::pair<std::vector<array>, std::vector<array>> vjp(

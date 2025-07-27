@@ -5,17 +5,33 @@
 #include <optional>
 
 #include "mlx/array.h"
+#include "mlx/utils.h"
 
 namespace mlx::core {
 
-void async_eval(std::vector<array> outputs);
+/**
+ *  Asynchronously evaluates the outputs.
+ *
+ *  This function is used to asynchronously evaluate the outputs.
+ */
+void async_eval(
+    std::vector<array> outputs,
+    const std::optional<StreamOrDevice>& s = std::nullopt);
 
 template <typename... Arrays, typename = enable_for_arrays_t<Arrays...>>
 void async_eval(Arrays&&... outputs) {
   async_eval(std::vector<array>{std::forward<Arrays>(outputs)...});
 }
 
-void eval(std::vector<array> outputs);
+/**
+ *  Evaluates the outputs.
+ *
+ *  This function is used to evaluate the outputs.
+ */
+void eval(
+    std::vector<array> outputs,
+    const std::optional<StreamOrDevice>& s = std::nullopt);
+
 
 template <typename... Arrays, typename = enable_for_arrays_t<Arrays...>>
 void eval(Arrays&&... outputs) {
