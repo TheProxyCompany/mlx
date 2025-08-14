@@ -1150,7 +1150,6 @@ void init_transforms(nb::module_& m) {
           eval(arrays, s); // Call our modified C++ function
         }
       },
-      nb::arg(),
       nb::sig("def eval(*args, stream: Stream | Device | None = None) -> None"),
       R"pbdoc(
         Evaluate an :class:`array` or tree of :class:`array`.
@@ -1177,7 +1176,6 @@ void init_transforms(nb::module_& m) {
           async_eval(arrays, s); // Call our modified C++ function
         }
       },
-      nb::arg(),
       nb::sig("def async_eval(*args, stream: Stream | Device | None = None)"),
       R"pbdoc(
         Asynchronously evaluate an :class:`array` or tree of :class:`array`.
