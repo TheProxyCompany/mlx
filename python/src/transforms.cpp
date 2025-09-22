@@ -1164,49 +1164,42 @@ void init_transforms(nb::module_& m) {
               :class:`list`, :class:`tuple` or :class:`dict`. Leaves which are not
               arrays are ignored.
       )pbdoc");
-  m.def(
-      "async_eval",
-      [](const nb::args& args, const nb::kwargs& kwargs) {
-        std::optional<mx::StreamOrDevice> s = std::nullopt;
-        if (kwargs.contains("stream")) {
-          s = nb::cast<mx::StreamOrDevice>(kwargs["stream"]);
-        }
+    m.def(
+        "async_eval",
+        [](const nb::args& args) {
+          std::vector<mx::array> arrays = tree_flatten(args, false);
+          {
+            nb::gil_scoped_release nogil;
+            async_eval(arrays);
+          }
+        },
+        nb::arg(),
+        nb::sig("def async_eval(*args)"),
+        R"pbdoc(
+          Asynchronously evaluate an :class:`array` or tree of :class:`array`.
 
-        std::vector<mx::array> arrays = tree_flatten(args, false);
-        {
-          nb::gil_scoped_release nogil;
-          async_eval(arrays, s); // Call our modified C++ function
-        }
-      },
-      nb::arg(),
-      nb::sig("def async_eval(*args, stream: Stream | Device | None = None)"),
-      R"pbdoc(
-        Asynchronously evaluate an :class:`array` or tree of :class:`array`.
+          .. note::
 
-        .. note::
+            This is an experimental API and may change in future versions.
 
-          This is an experimental API and may change in future versions.
+          Args:
+              *args (arrays or trees of arrays): Each argument can be a single array
+                or a tree of arrays. If a tree is given the nodes can be a Python
+                :class:`list`, :class:`tuple` or :class:`dict`. Leaves which are not
+                arrays are ignored.
 
-        Args:
-            stream (Stream | Device | None, optional): The stream to use for the evaluation.
-              If not provided, the default stream will be used.
-            *args (arrays or trees of arrays): Each argument can be a single array
-              or a tree of arrays. If a tree is given the nodes can be a Python
-              :class:`list`, :class:`tuple` or :class:`dict`. Leaves which are not
-              arrays are ignored.
-
-        Example:
-            >>> x = mx.array(1.0)
-            >>> y = mx.exp(x)
-            >>> mx.async_eval(y)
-            >>> print(y)
-            >>>
-            >>> y = mx.exp(x)
-            >>> mx.async_eval(y)
-            >>> z = y + 3
-            >>> mx.async_eval(z)
-            >>> print(z)
-      )pbdoc");
+          Example:
+              >>> x = mx.array(1.0)
+              >>> y = mx.exp(x)
+              >>> mx.async_eval(y)
+              >>> print(y)
+              >>>
+              >>> y = mx.exp(x)
+              >>> mx.async_eval(y)
+              >>> z = y + 3
+              >>> mx.async_eval(z)
+              >>> print(z)
+        )pbdoc");
   m.def(
       "jvp",
       [](const nb::callable& fun,
