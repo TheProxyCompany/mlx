@@ -316,7 +316,7 @@ void async_eval(
 
 void eval(
   std::vector<array> outputs,
-  const std::optional<StreamOrDevice>& s
+  const std::optional<StreamOrDevice>& s = std::nullopt
 ) {
   if (outputs.empty()) {
     return;
@@ -331,7 +331,7 @@ void eval(
     return;
   }
 
-  eval_impl(std::move(outputs), false).wait();
+  eval_impl(std::move(outputs), false, s).wait();
 }
 
 std::pair<std::vector<array>, std::vector<array>> vjp(

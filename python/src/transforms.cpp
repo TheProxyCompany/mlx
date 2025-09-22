@@ -1139,26 +1139,19 @@ void init_transforms(nb::module_& m) {
 
   m.def(
       "eval",
-      [](const nb::args& args, const nb::kwargs& kwargs) {
-        std::optional<mx::StreamOrDevice> s = std::nullopt;
-        if (kwargs.contains("stream")) {
-          s = nb::cast<mx::StreamOrDevice>(kwargs["stream"]);
-        }
-
+      [](const nb::args& args) {
         std::vector<mx::array> arrays = tree_flatten(args, false);
         {
           nb::gil_scoped_release nogil;
-          eval(arrays, s); // Call our modified C++ function
+          eval(arrays);
         }
       },
       nb::arg(),
-      nb::sig("def eval(*args, stream: Stream | Device | None = None) -> None"),
+      nb::sig("def eval(*args) -> None"),
       R"pbdoc(
         Evaluate an :class:`array` or tree of :class:`array`.
 
         Args:
-            stream (Stream | Device | None, optional): The stream to use for the evaluation.
-              If not provided, the default stream will be used.
             *args (arrays or trees of arrays): Each argument can be a single array
               or a tree of arrays. If a tree is given the nodes can be a Python
               :class:`list`, :class:`tuple` or :class:`dict`. Leaves which are not
