@@ -1145,12 +1145,6 @@ void init_transforms(nb::module_& m) {
           s = nb::cast<mx::StreamOrDevice>(kwargs["stream"]);
         }
 
-      [](const nb::args& args, const nb::kwargs& kwargs) {
-        std::optional<mx::StreamOrDevice> s = std::nullopt;
-        if (kwargs.contains("stream")) {
-          s = nb::cast<mx::StreamOrDevice>(kwargs["stream"]);
-        }
-
         std::vector<mx::array> arrays = tree_flatten(args, false);
         {
           nb::gil_scoped_release nogil;
