@@ -316,7 +316,7 @@ void async_eval(
 
 void eval(
   std::vector<array> outputs,
-  const std::optional<StreamOrDevice>& s = std::nullopt
+  const std::optional<StreamOrDevice>& s
 ) {
   if (outputs.empty()) {
     return;
