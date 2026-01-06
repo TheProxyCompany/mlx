@@ -364,6 +364,58 @@ class CompilerCache {
     return entries.back();
   }
 
+  // Same as find, but the caller provides the stream to key the cache.
+  CacheEntry& find_with_stream(
+      std::uintptr_t fun_id,
+      const std::vector<array>& inputs,
+      bool shapeless,
+      const std::vector<uint64_t>& constants,
+      const Stream& stream) {
+    // Find the cache entries for |fun_id|.
+    std::vector<CacheEntry>& entries = cache_[fun_id];
+
+    // Compare if 2 arrays have same shape and dtype.
+    auto has_same_shape_and_dtype = [shapeless](
+                                        const std::vector<array>& in1,
+                                        const std::vector<array>& in2) {
+      if (in1.size() != in2.size()) {
+        return false;
+      }
+      for (size_t i = 0; i < in1.size(); ++i) {
+        if (in1[i].ndim() != in2[i].ndim()) {
+          return false;
+        }
+        if (!shapeless && in1[i].shape() != in2[i].shape()) {
+          return false;
+        }
+        if (in1[i].dtype() != in2[i].dtype()) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    // Loop over entries and check:
+    // - Stream matches the entry stream
+    // - Inputs match i.e. shapes and types must be equal.
+    for (CacheEntry& entry : entries) {
+      if (entry.stream != stream) {
+        continue;
+      }
+      if (entry.shapeless != shapeless) {
+        continue;
+      }
+      if (has_same_shape_and_dtype(inputs, entry.inputs) &&
+          constants == entry.constants) {
+        return entry;
+      }
+    }
+
+    // Otherwise append a new cache entry
+    entries.push_back(CacheEntry{stream, shapeless});
+    return entries.back();
+  }
+
   void erase(std::uintptr_t fun_id) {
     cache_.erase(fun_id);
   }
@@ -1153,6 +1205,75 @@ ArrayFnWithExtra compile(
   };
 }
 
+ArrayFnWithExtra compile_with_stream(
+    ArrayFnWithExtra fun,
+    std::uintptr_t fun_id,
+    Stream stream,
+    bool shapeless /* = false */,
+    std::vector<uint64_t> constants /* = {} */) {
+  if (skip_compile()) {
+    return fun;
+  }
+  if (!fun) {
+    throw std::invalid_argument(
+        "[compile_with_stream] Cannot compile a function without a target.");
+  }
+
+  return [fun = std::move(fun),
+          fun_id,
+          stream,
+          shapeless,
+          constants = std::move(constants)](const std::vector<array>& inputs) {
+    // If the inputs are tracers, trace the original graph
+    if (std::any_of(inputs.begin(), inputs.end(), [](auto& in) {
+          return in.is_tracer();
+        })) {
+      return fun(inputs);
+    }
+
+    // Find a cache entry with the correct inputs and stream
+    auto& entry = compiler_cache().find_with_stream(
+        fun_id, inputs, shapeless, constants, stream);
+
+    // No matching cache entry existed, so compile
+    if (entry.empty) {
+      // Mark the entry as not empty since we are about to fill it
+      entry.empty = false;
+      // Set the constants
+      entry.constants = std::move(constants);
+      // Trace to build the graph
+      std::tie(entry.inputs, entry.outputs, entry.extra) =
+          compile_trace(fun, inputs, shapeless);
+
+      // DFS the graph and get a tape, and a map of array id to (parent,
+      // position in parent inputs)
+      std::unordered_map<uintptr_t, std::vector<std::pair<array, int>>>
+          parents_map;
+      std::tie(entry.tape, parents_map) =
+          compile_dfs(entry.inputs, entry.outputs, inputs);
+
+      // Simplify the tape
+      if (compile_mode() != CompileMode::no_simplify) {
+        compile_simplify(
+            entry.tape, parents_map, entry.outputs, /* passes */ 3);
+      }
+
+      // Kernel fusion to generate Compiled primitives. The tape and
+      // new outputs must be updated accordingly
+      if (compile_mode() != CompileMode::no_fuse) {
+        compile_fuse(entry.tape, parents_map, entry.inputs, entry.outputs);
+      }
+    }
+
+    // At this point we must have a tape, now replace the placeholders
+    // with real arrays that can be evaluated
+    return ArraysAndExtra{
+        compile_replace(
+            entry.tape, entry.inputs, entry.outputs, inputs, shapeless),
+        entry.extra};
+  };
+}
+
 std::function<std::vector<array>(const std::vector<array>&)> compile(
     std::function<std::vector<array>(const std::vector<array>&)> fun,
     std::uintptr_t fun_id,
@@ -1173,6 +1294,35 @@ std::function<std::vector<array>(const std::vector<array>&)> compile(
 
   auto compiled_fun = compile(
       std::move(fun_with_extra), fun_id, shapeless, std::move(constants));
+
+  return [compiled_fun =
+              std::move(compiled_fun)](const std::vector<array>& inputs) {
+    return compiled_fun(inputs).first;
+  };
+}
+
+std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream(
+    std::function<std::vector<array>(const std::vector<array>&)> fun,
+    std::uintptr_t fun_id,
+    Stream stream,
+    bool shapeless /* = false */,
+    std::vector<uint64_t> constants /* = {} */) {
+  if (skip_compile()) {
+    return fun;
+  }
+  if (!fun) {
+    throw std::invalid_argument(
+        "[compile_with_stream] Cannot compile a function without a target.");
+  }
+
+  ArrayFnWithExtra fun_with_extra =
+      [fun = std::move(fun)](const std::vector<array>& inputs) {
+        return ArraysAndExtra{fun(inputs), nullptr};
+      };
+
+  auto compiled_fun = compile_with_stream(
+      std::move(fun_with_extra), fun_id, stream, shapeless,
+      std::move(constants));
 
   return [compiled_fun =
               std::move(compiled_fun)](const std::vector<array>& inputs) {
@@ -1226,6 +1376,50 @@ std::function<std::vector<array>(const std::vector<array>&)> compile(
     return fun;
   }
   return detail::compile(fun, reinterpret_cast<std::uintptr_t>(fun), shapeless);
+}
+
+std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream(
+    std::function<std::vector<array>(const std::vector<array>&)> fun,
+    StreamOrDevice s,
+    bool shapeless /* false */) {
+  if (detail::skip_compile()) {
+    return fun;
+  }
+  auto stream = to_stream(s);
+  auto fun_id = detail::get_function_address(fun);
+  if (fun_id) {
+    // If the function has an addressable target then no need to manage it's
+    // lifetime
+    return detail::compile_with_stream(std::move(fun), fun_id, stream, shapeless);
+  } else {
+    auto pfun = std::shared_ptr<
+        std::function<std::vector<array>(const std::vector<array>&)>>(
+        new std::function<std::vector<array>(const std::vector<array>&)>{fun},
+        [](auto* p) {
+          detail::compile_erase(reinterpret_cast<std::uintptr_t>(p));
+          delete p;
+        });
+    fun_id = reinterpret_cast<std::uintptr_t>(pfun.get());
+    return detail::compile_with_stream(
+        [pfun = std::move(pfun)](const auto& inputs) {
+          return (*pfun)(inputs);
+        },
+        fun_id,
+        stream,
+        shapeless);
+  }
+}
+
+std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream(
+    std::vector<array> (*fun)(const std::vector<array>&),
+    StreamOrDevice s,
+    bool shapeless /* = false */) {
+  if (detail::skip_compile()) {
+    return fun;
+  }
+  auto stream = to_stream(s);
+  return detail::compile_with_stream(
+      fun, reinterpret_cast<std::uintptr_t>(fun), stream, shapeless);
 }
 
 void disable_compile() {

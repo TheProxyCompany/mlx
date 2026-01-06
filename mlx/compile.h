@@ -3,6 +3,7 @@
 #pragma once
 
 #include "mlx/array.h"
+#include "mlx/utils.h"
 
 namespace mlx::core {
 
@@ -17,6 +18,17 @@ std::function<std::vector<array>(const std::vector<array>&)> compile(
     std::vector<array> (*fun)(const std::vector<array>&),
     bool shapeless = false);
 
+/** Compile takes a function and returns a compiled function keyed by stream. */
+std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream(
+    std::function<std::vector<array>(const std::vector<array>&)> fun,
+    StreamOrDevice s,
+    bool shapeless = false);
+
+std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream(
+    std::vector<array> (*fun)(const std::vector<array>&),
+    StreamOrDevice s,
+    bool shapeless = false);
+
 // Convert capture-less lambdas to function pointers.
 template <
     typename F,
@@ -26,6 +38,18 @@ std::function<std::vector<array>(const std::vector<array>&)> compile(
     F&& f,
     bool shapeless = false) {
   return compile(+f, shapeless);
+}
+
+// Convert capture-less lambdas to function pointers.
+template <
+    typename F,
+    typename = std::enable_if_t<
+        std::is_convertible_v<F, decltype(+std::declval<F>())>>>
+std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream(
+    F&& f,
+    StreamOrDevice s,
+    bool shapeless = false) {
+  return compile_with_stream(+f, s, shapeless);
 }
 
 /** Globally disable compilation.
