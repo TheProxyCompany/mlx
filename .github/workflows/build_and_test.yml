@@ -65,7 +65,7 @@ jobs:
     if: github.repository == 'ml-explore/mlx'
     strategy:
       matrix:
-        macos-target: ["14.0", "15.0"]
+        macos-target: ["14.0", "15.0", "26.0"]
     runs-on: [self-hosted, macos]
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos-target }}
@@ -83,6 +83,39 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/build-docs
+
+  linux_sanitizer_build_and_test:
+    name: Linux Sanitizer Tests (${{ matrix.sanitizer }})
+    needs: check_lint
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [ASAN, UBSAN]
+        # todo 12/16/2025: enable TSAN later + consider enabling ASAN for GPU backend tests.
+        # sanitizer: [ASAN, UBSAN, TSAN]
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            build-essential \
+            libblas-dev \
+            liblapacke-dev \
+            libopenblas-dev \
+            cmake \
+            clang \
+            git
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: Linux Build and Test with ${{ matrix.sanitizer }}
+        run: |
+          bash .github/scripts/build-sanitizer-tests.sh ${{ matrix.sanitizer }}
 
   linux_fedora_build_cpp:
     name: Linux Fedora (${{ matrix.arch }})
