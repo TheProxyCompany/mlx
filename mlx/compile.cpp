@@ -1390,7 +1390,8 @@ std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream
   if (fun_id) {
     // If the function has an addressable target then no need to manage it's
     // lifetime
-    return detail::compile_with_stream(std::move(fun), fun_id, stream, shapeless);
+    return detail::compile_with_stream(
+        std::move(fun), fun_id, stream, shapeless, {});
   } else {
     auto pfun = std::shared_ptr<
         std::function<std::vector<array>(const std::vector<array>&)>>(
@@ -1406,7 +1407,8 @@ std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream
         },
         fun_id,
         stream,
-        shapeless);
+        shapeless,
+        {});
   }
 }
 
@@ -1419,7 +1421,7 @@ std::function<std::vector<array>(const std::vector<array>&)> compile_with_stream
   }
   auto stream = to_stream(s);
   return detail::compile_with_stream(
-      fun, reinterpret_cast<std::uintptr_t>(fun), stream, shapeless);
+      fun, reinterpret_cast<std::uintptr_t>(fun), stream, shapeless, {});
 }
 
 void disable_compile() {
