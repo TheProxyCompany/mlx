@@ -20,7 +20,8 @@ class KeySequence {
 
   // static default
   static KeySequence& default_() {
-    static KeySequence ks(get_current_time_seed());
+    // Thread-local RNG state avoids shared graph detaches across eval threads.
+    static thread_local KeySequence ks(get_current_time_seed());
     return ks;
   }
 
