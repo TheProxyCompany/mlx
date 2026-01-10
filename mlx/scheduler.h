@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -114,23 +115,17 @@ class Scheduler {
   }
 
   void notify_new_task(const Stream& stream) {
-    {
-      std::lock_guard<std::mutex> lk(mtx);
-      n_active_tasks_++;
-    }
+    n_active_tasks_.fetch_add(1, std::memory_order_acq_rel);
     completion_cv.notify_all();
   }
 
   void notify_task_completion(const Stream& stream) {
-    {
-      std::lock_guard<std::mutex> lk(mtx);
-      n_active_tasks_--;
-    }
+    n_active_tasks_.fetch_sub(1, std::memory_order_acq_rel);
     completion_cv.notify_all();
   }
 
   int n_active_tasks() const {
-    return n_active_tasks_;
+    return n_active_tasks_.load(std::memory_order_acquire);
   }
 
   void wait_for_one() {
@@ -159,7 +154,7 @@ class Scheduler {
   }
 
  private:
-  int n_active_tasks_;
+  std::atomic<int> n_active_tasks_;
   std::vector<StreamThread*> threads_;
   std::vector<Stream> streams_;
   std::unordered_map<Device::DeviceType, Stream> default_streams_;
