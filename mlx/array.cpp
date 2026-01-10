@@ -58,6 +58,7 @@ array::array(
 // Explicit template instantiations for stream-aware constructors
 #define INSTANTIATE_STREAM_CONSTRUCTORS(T)                                     \
   template array::array(T, Dtype, StreamOrDevice);                             \
+  template array::array(T*, Shape, Dtype, StreamOrDevice);                     \
   template array::array(const T*, Shape, Dtype, StreamOrDevice);               \
   template array::array(std::initializer_list<T>, Dtype, StreamOrDevice);      \
   template array::array(std::initializer_list<T>, Shape, Dtype, StreamOrDevice);
