@@ -11,6 +11,7 @@
 #include "mlx/dtype.h"
 #include "mlx/event.h"
 #include "mlx/small_vector.h"
+#include "mlx/stream_or_device.h"
 
 namespace mlx::core {
 
@@ -73,6 +74,32 @@ class array {
       Shape shape,
       Dtype dtype,
       Deleter deleter = allocator::free);
+
+  /**
+   * Stream-aware constructors.
+   * These create arrays that are properly associated with the given stream,
+   * enabling correct synchronization in multi-stream scenarios.
+   */
+
+  /** Construct a scalar array on a specific stream. */
+  template <typename T>
+  explicit array(T val, Dtype dtype, StreamOrDevice s);
+
+  /** Construct an array from an iterator on a specific stream. */
+  template <typename It>
+  explicit array(It data, Shape shape, Dtype dtype, StreamOrDevice s);
+
+  /** Construct an array from an initializer list on a specific stream. */
+  template <typename T>
+  explicit array(std::initializer_list<T> data, Dtype dtype, StreamOrDevice s);
+
+  /** Construct an array from an initializer list with shape on a specific stream. */
+  template <typename T>
+  explicit array(
+      std::initializer_list<T> data,
+      Shape shape,
+      Dtype dtype,
+      StreamOrDevice s);
 
   /** Assignment to rvalue does not compile. */
   array& operator=(const array& other) && = delete;

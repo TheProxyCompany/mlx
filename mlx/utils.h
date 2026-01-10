@@ -6,13 +6,10 @@
 #include <variant>
 
 #include "mlx/array.h"
-#include "mlx/device.h"
 #include "mlx/dtype.h"
-#include "mlx/stream.h"
+#include "mlx/stream_or_device.h"
 
 namespace mlx::core {
-
-using StreamOrDevice = std::variant<std::monostate, Stream, Device>;
 Stream to_stream(StreamOrDevice s);
 Stream to_stream(StreamOrDevice s, Device default_);
 

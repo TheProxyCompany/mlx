@@ -16,6 +16,69 @@ array::array(const std::complex<float>& val, Dtype dtype /* = complex64 */)
   init(&cval);
 }
 
+// Stream-aware constructor implementations
+// These create a leaf array then wrap with copy() to associate with the stream
+
+template <typename T>
+array::array(T val, Dtype dtype, StreamOrDevice s)
+    : array(val, dtype) {
+  if (!std::holds_alternative<std::monostate>(s)) {
+    *this = copy(*this, s);
+  }
+}
+
+template <typename It>
+array::array(It data, Shape shape, Dtype dtype, StreamOrDevice s)
+    : array(data, std::move(shape), dtype) {
+  if (!std::holds_alternative<std::monostate>(s)) {
+    *this = copy(*this, s);
+  }
+}
+
+template <typename T>
+array::array(std::initializer_list<T> data, Dtype dtype, StreamOrDevice s)
+    : array(data, dtype) {
+  if (!std::holds_alternative<std::monostate>(s)) {
+    *this = copy(*this, s);
+  }
+}
+
+template <typename T>
+array::array(
+    std::initializer_list<T> data,
+    Shape shape,
+    Dtype dtype,
+    StreamOrDevice s)
+    : array(data, std::move(shape), dtype) {
+  if (!std::holds_alternative<std::monostate>(s)) {
+    *this = copy(*this, s);
+  }
+}
+
+// Explicit template instantiations for stream-aware constructors
+#define INSTANTIATE_STREAM_CONSTRUCTORS(T)                                     \
+  template array::array(T, Dtype, StreamOrDevice);                             \
+  template array::array(const T*, Shape, Dtype, StreamOrDevice);               \
+  template array::array(std::initializer_list<T>, Dtype, StreamOrDevice);      \
+  template array::array(std::initializer_list<T>, Shape, Dtype, StreamOrDevice);
+
+INSTANTIATE_STREAM_CONSTRUCTORS(bool)
+INSTANTIATE_STREAM_CONSTRUCTORS(uint8_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(uint16_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(uint32_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(uint64_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(int8_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(int16_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(int32_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(int64_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(float16_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(bfloat16_t)
+INSTANTIATE_STREAM_CONSTRUCTORS(float)
+INSTANTIATE_STREAM_CONSTRUCTORS(double)
+INSTANTIATE_STREAM_CONSTRUCTORS(complex64_t)
+
+#undef INSTANTIATE_STREAM_CONSTRUCTORS
+
 array::array(
     Shape shape,
     Dtype dtype,
