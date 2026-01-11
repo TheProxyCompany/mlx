@@ -106,15 +106,15 @@ void binary_op_gpu_inplace(
   auto kernel = outputs.size() == 2
       ? get_binary_two_kernel(d, kernel_name, a.dtype(), out.dtype(), op)
       : get_binary_kernel(d, kernel_name, a.dtype(), out.dtype(), op);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int arg_idx = 0;
-  compute_encoder.set_input_array(a, arg_idx++);
-  compute_encoder.set_input_array(b, arg_idx++);
-  compute_encoder.set_output_array(outputs[0], arg_idx++);
+  compute_encoder->set_input_array(a, arg_idx++);
+  compute_encoder->set_input_array(b, arg_idx++);
+  compute_encoder->set_output_array(outputs[0], arg_idx++);
   if (outputs.size() == 2) {
-    compute_encoder.set_output_array(outputs[1], arg_idx++);
+    compute_encoder->set_output_array(outputs[1], arg_idx++);
   }
 
   auto thread_group_size = kernel->maxTotalThreadsPerThreadgroup();
@@ -125,15 +125,15 @@ void binary_op_gpu_inplace(
     size_t rest = out.size() / (dim0 * dim1);
 
     if (ndim > 3) {
-      compute_encoder.set_vector_bytes(shape, arg_idx++);
-      compute_encoder.set_vector_bytes(strides_a, arg_idx++);
-      compute_encoder.set_vector_bytes(strides_b, arg_idx++);
-      compute_encoder.set_bytes<int>(ndim, arg_idx++);
+      compute_encoder->set_vector_bytes(shape, arg_idx++);
+      compute_encoder->set_vector_bytes(strides_a, arg_idx++);
+      compute_encoder->set_vector_bytes(strides_b, arg_idx++);
+      compute_encoder->set_bytes<int>(ndim, arg_idx++);
       dim0 = (dim0 + work_per_thread - 1) / work_per_thread;
     } else {
       // The shape is implicit in the grid for <= 3D
-      compute_encoder.set_vector_bytes(strides_a, arg_idx++);
-      compute_encoder.set_vector_bytes(strides_b, arg_idx++);
+      compute_encoder->set_vector_bytes(strides_a, arg_idx++);
+      compute_encoder->set_vector_bytes(strides_b, arg_idx++);
     }
 
     if (thread_group_size != 1024) {
@@ -141,7 +141,7 @@ void binary_op_gpu_inplace(
     }
     auto group_dims = get_block_dims(dim0, dim1, rest);
     MTL::Size grid_dims = MTL::Size(dim0, dim1, rest);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   } else {
     // Launch a 1D or 2D grid of threads
     size_t nthreads = ceildiv(out.data_size(), work_per_thread);
@@ -152,13 +152,13 @@ void binary_op_gpu_inplace(
     MTL::Size group_dims = MTL::Size(thread_group_size, 1, 1);
     MTL::Size grid_dims;
     if (large) {
-      compute_encoder.set_bytes<int64_t>(out.data_size(), arg_idx++);
+      compute_encoder->set_bytes<int64_t>(out.data_size(), arg_idx++);
       grid_dims = get_2d_grid_dims(out.shape(), out.strides(), work_per_thread);
     } else {
-      compute_encoder.set_bytes<int>(out.data_size(), arg_idx++);
+      compute_encoder->set_bytes<int>(out.data_size(), arg_idx++);
       grid_dims = MTL::Size(nthreads, 1, 1);
     }
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 

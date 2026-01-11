@@ -215,22 +215,22 @@ void qmv_quad(
       B > 1 ? "_batch_1" : "_batch_0");
   auto kernel = get_quantized_kernel_wrapped(
       d, kname, "qmv_quad", mode, type_string, group_size, bits, K, B > 1);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  add_strides_and_shapes(compute_encoder, B <= 1, x, w, scales, biases, c++);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  add_strides_and_shapes(*compute_encoder, B <= 1, x, w, scales, biases, c++);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void qmv(
@@ -278,22 +278,22 @@ void qmv(
       bits,
       B > 1);
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  add_strides_and_shapes(compute_encoder, B <= 1, x, w, scales, biases, c);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  add_strides_and_shapes(*compute_encoder, B <= 1, x, w, scales, biases, c);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void qvm_split_k(
@@ -377,35 +377,35 @@ void qvm_split_k(
   auto kernel = get_quantized_kernel_wrapped(
       d, kname, "qvm_split_k", mode, type_string, group_size, bits, split_k);
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_output_array(intermediate, c++);
-  compute_encoder.set_bytes(split_D, c++);
-  compute_encoder.set_bytes(N, c++);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_output_array(intermediate, c++);
+  compute_encoder->set_bytes(split_D, c++);
+  compute_encoder->set_bytes(N, c++);
 
-  compute_encoder.set_bytes(x_batch_ndims, c++);
-  compute_encoder.set_vector_bytes(x_shape, c++);
-  compute_encoder.set_vector_bytes(x_strides, c++);
-  compute_encoder.set_bytes(w_batch_ndims, c++);
-  compute_encoder.set_vector_bytes(w_shape, c++);
-  compute_encoder.set_vector_bytes(w_strides, c++);
-  compute_encoder.set_vector_bytes(s_strides, c++);
+  compute_encoder->set_bytes(x_batch_ndims, c++);
+  compute_encoder->set_vector_bytes(x_shape, c++);
+  compute_encoder->set_vector_bytes(x_strides, c++);
+  compute_encoder->set_bytes(w_batch_ndims, c++);
+  compute_encoder->set_vector_bytes(w_shape, c++);
+  compute_encoder->set_vector_bytes(w_strides, c++);
+  compute_encoder->set_vector_bytes(s_strides, c++);
   if (biases) {
     auto b_strides = biases->strides();
     b_strides.insert(b_strides.end() - 2, split_D * biases->shape(-1));
-    compute_encoder.set_vector_bytes(b_strides, c++);
+    compute_encoder->set_vector_bytes(b_strides, c++);
   }
-  compute_encoder.set_bytes(final_block_size, c++);
+  compute_encoder->set_bytes(final_block_size, c++);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
   int axis = intermediate.ndim() - 3;
   ReductionPlan plan(
@@ -413,7 +413,7 @@ void qvm_split_k(
       {intermediate.shape(axis)},
       {intermediate.strides(axis)});
   strided_reduce_general_dispatch(
-      intermediate, out, "sum", plan, {axis}, compute_encoder, d, s);
+      intermediate, out, "sum", plan, {axis}, *compute_encoder, d, s);
 }
 
 void qvm(
@@ -452,22 +452,22 @@ void qvm(
       B > 1 ? "_batch_1" : "_batch_0");
   auto kernel = get_quantized_kernel_wrapped(
       d, kname, "qvm", mode, type_string, group_size, bits, B > 1);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  add_strides_and_shapes(compute_encoder, B <= 1, x, w, scales, biases, c++);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  add_strides_and_shapes(*compute_encoder, B <= 1, x, w, scales, biases, c++);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void qmm_nax(
@@ -554,23 +554,23 @@ void qmm_nax(
         wm,
         wn);
   }
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  compute_encoder.set_bytes(M, c++);
-  add_strides_and_shapes(compute_encoder, B <= 1, x, w, scales, biases, c);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  compute_encoder->set_bytes(M, c++);
+  add_strides_and_shapes(*compute_encoder, B <= 1, x, w, scales, biases, c);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_qmm_nax(
@@ -655,26 +655,26 @@ void gather_qmm_nax(
         wn);
   }
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_input_array(lhs_indices, c++);
-  compute_encoder.set_input_array(rhs_indices, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  compute_encoder.set_bytes(M, c++);
-  c = add_strides_and_shapes(compute_encoder, false, x, w, scales, biases, c);
-  add_gather_strides_and_shapes(compute_encoder, lhs_indices, rhs_indices, c);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_input_array(lhs_indices, c++);
+  compute_encoder->set_input_array(rhs_indices, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  compute_encoder->set_bytes(M, c++);
+  c = add_strides_and_shapes(*compute_encoder, false, x, w, scales, biases, c);
+  add_gather_strides_and_shapes(*compute_encoder, lhs_indices, rhs_indices, c);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void qmm(
@@ -752,23 +752,23 @@ void qmm(
     kernel = get_quantized_kernel_wrapped(
         d, kname, "qmm_n", mode, type_string, group_size, bits, batched);
   }
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  compute_encoder.set_bytes(M, c++);
-  add_strides_and_shapes(compute_encoder, B <= 1, x, w, scales, biases, c);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  compute_encoder->set_bytes(M, c++);
+  add_strides_and_shapes(*compute_encoder, B <= 1, x, w, scales, biases, c);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_qmm(
@@ -840,26 +840,26 @@ void gather_qmm(
         d, kname, "gather_qmm_n", mode, type_string, group_size, bits);
   }
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_input_array(lhs_indices, c++);
-  compute_encoder.set_input_array(rhs_indices, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  compute_encoder.set_bytes(M, c++);
-  c = add_strides_and_shapes(compute_encoder, false, x, w, scales, biases, c);
-  add_gather_strides_and_shapes(compute_encoder, lhs_indices, rhs_indices, c);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_input_array(lhs_indices, c++);
+  compute_encoder->set_input_array(rhs_indices, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  compute_encoder->set_bytes(M, c++);
+  c = add_strides_and_shapes(*compute_encoder, false, x, w, scales, biases, c);
+  add_gather_strides_and_shapes(*compute_encoder, lhs_indices, rhs_indices, c);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_qmv(
@@ -907,25 +907,25 @@ void gather_qmv(
       group_size,
       bits);
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_input_array(lhs_indices, c++);
-  compute_encoder.set_input_array(rhs_indices, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  c = add_strides_and_shapes(compute_encoder, false, x, w, scales, biases, c);
-  add_gather_strides_and_shapes(compute_encoder, lhs_indices, rhs_indices, c);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_input_array(lhs_indices, c++);
+  compute_encoder->set_input_array(rhs_indices, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  c = add_strides_and_shapes(*compute_encoder, false, x, w, scales, biases, c);
+  add_gather_strides_and_shapes(*compute_encoder, lhs_indices, rhs_indices, c);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_qvm(
@@ -965,25 +965,25 @@ void gather_qvm(
       bits);
   auto kernel = get_quantized_kernel_wrapped(
       d, kname, "gather_qvm", mode, type_string, group_size, bits);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int c = 0;
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases) {
-    compute_encoder.set_input_array(*biases, c++);
+    compute_encoder->set_input_array(*biases, c++);
   }
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_input_array(lhs_indices, c++);
-  compute_encoder.set_input_array(rhs_indices, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(K, c++);
-  compute_encoder.set_bytes(N, c++);
-  c = add_strides_and_shapes(compute_encoder, false, x, w, scales, biases, c++);
-  add_gather_strides_and_shapes(compute_encoder, lhs_indices, rhs_indices, c);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_input_array(lhs_indices, c++);
+  compute_encoder->set_input_array(rhs_indices, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(K, c++);
+  compute_encoder->set_bytes(N, c++);
+  c = add_strides_and_shapes(*compute_encoder, false, x, w, scales, biases, c++);
+  add_gather_strides_and_shapes(*compute_encoder, lhs_indices, rhs_indices, c);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_qmm_rhs_nax(
@@ -1079,7 +1079,7 @@ void gather_qmm_rhs_nax(
       align_K ? 't' : 'n');
 
   // Get and set the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_gather_qmm_nax_kernel(
       d,
       kname,
@@ -1095,26 +1095,26 @@ void gather_qmm_rhs_nax(
       wm,
       wn,
       transpose);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   MTL::Size group_dims(32, wn, wm);
   MTL::Size grid_dims((N + bn - 1) / bn, (M + bm - 1) / bm, 1);
 
   int c = 0;
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases_) {
     array biases = ensure_row_contiguous(*biases_, d, s);
-    compute_encoder.set_input_array(biases, c++);
+    compute_encoder->set_input_array(biases, c++);
   }
-  compute_encoder.set_input_array(indices, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(M, c++);
-  compute_encoder.set_bytes(N, c++);
-  compute_encoder.set_bytes(K, c++);
+  compute_encoder->set_input_array(indices, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(M, c++);
+  compute_encoder->set_bytes(N, c++);
+  compute_encoder->set_bytes(K, c++);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_qmm_rhs(
@@ -1229,7 +1229,7 @@ void gather_qmm_rhs(
       align_K ? 't' : 'n');
 
   // Get and set the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_gather_qmm_kernel(
       d,
       kname,
@@ -1245,26 +1245,26 @@ void gather_qmm_rhs(
       wm,
       wn,
       transpose);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   MTL::Size group_dims(32, wn, wm);
   MTL::Size grid_dims((N + bn - 1) / bn, (M + bm - 1) / bm, 1);
 
   int c = 0;
-  compute_encoder.set_input_array(x, c++);
-  compute_encoder.set_input_array(w, c++);
-  compute_encoder.set_input_array(scales, c++);
+  compute_encoder->set_input_array(x, c++);
+  compute_encoder->set_input_array(w, c++);
+  compute_encoder->set_input_array(scales, c++);
   if (biases_) {
     array biases = ensure_row_contiguous(*biases_, d, s);
-    compute_encoder.set_input_array(biases, c++);
+    compute_encoder->set_input_array(biases, c++);
   }
-  compute_encoder.set_input_array(indices, c++);
-  compute_encoder.set_output_array(out, c++);
-  compute_encoder.set_bytes(M, c++);
-  compute_encoder.set_bytes(N, c++);
-  compute_encoder.set_bytes(K, c++);
+  compute_encoder->set_input_array(indices, c++);
+  compute_encoder->set_output_array(out, c++);
+  compute_encoder->set_bytes(M, c++);
+  compute_encoder->set_bytes(N, c++);
+  compute_encoder->set_bytes(K, c++);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void QuantizedMatmul::eval_gpu(const std::vector<array>& inputs, array& out) {
@@ -1452,29 +1452,29 @@ void fast::Quantize::eval_gpu(
 
   auto& s = stream();
   auto& d = metal::device(s.device);
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
 
   auto w = ensure_row_contiguous(w_pre, d, s);
   if (dequantize_) {
     auto scales = ensure_row_contiguous(inputs[1], d, s);
     if (mode_ == QuantizationMode::Affine) {
       auto biases = ensure_row_contiguous(inputs[2], d, s);
-      compute_encoder.set_input_array(biases, 2);
+      compute_encoder->set_input_array(biases, 2);
     }
-    compute_encoder.set_input_array(w, 0);
-    compute_encoder.set_input_array(scales, 1);
-    compute_encoder.set_output_array(out, 3);
+    compute_encoder->set_input_array(w, 0);
+    compute_encoder->set_input_array(scales, 1);
+    compute_encoder->set_output_array(out, 3);
   } else {
     auto& scales = outputs[1];
     scales.set_data(allocator::malloc(scales.nbytes()));
     if (mode_ == QuantizationMode::Affine) {
       auto& biases = outputs[2];
       biases.set_data(allocator::malloc(biases.nbytes()));
-      compute_encoder.set_output_array(biases, 3);
+      compute_encoder->set_output_array(biases, 3);
     }
-    compute_encoder.set_input_array(w, 0);
-    compute_encoder.set_output_array(out, 1);
-    compute_encoder.set_output_array(scales, 2);
+    compute_encoder->set_input_array(w, 0);
+    compute_encoder->set_output_array(out, 1);
+    compute_encoder->set_output_array(scales, 2);
   }
 
   auto type_string = dequantize_ ? get_type_string(out.dtype())
@@ -1499,7 +1499,7 @@ void fast::Quantize::eval_gpu(
       group_size_,
       bits_);
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Treat uint32 as uint8 in kernel
   constexpr int uint8_per_uint32 = 4;
@@ -1526,7 +1526,7 @@ void fast::Quantize::eval_gpu(
   }
   MTL::Size grid_dims = use_2d ? get_2d_grid_dims(grid_shape, w.strides())
                                : MTL::Size(nthreads, 1, 1);
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void fast::ConvertFP8::eval_gpu(

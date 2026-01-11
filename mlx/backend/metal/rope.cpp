@@ -118,32 +118,32 @@ void RoPE::eval_gpu(
       {&head_seq_transpose, MTL::DataType::DataTypeBool, 3}};
 
   auto kernel = d.get_kernel(kname, hash_name, func_consts);
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
 
   float base = std::log2(base_);
-  compute_encoder.set_compute_pipeline_state(kernel);
-  compute_encoder.set_input_array(donated ? out : in, 0);
-  compute_encoder.set_output_array(out, 1);
+  compute_encoder->set_compute_pipeline_state(kernel);
+  compute_encoder->set_input_array(donated ? out : in, 0);
+  compute_encoder->set_output_array(out, 1);
 
-  compute_encoder.set_input_array(offset, 2);
-  compute_encoder.set_bytes(scale_, 3);
+  compute_encoder->set_input_array(offset, 2);
+  compute_encoder->set_bytes(scale_, 3);
 
   MTL::Size group_dims;
   MTL::Size grid_dims;
   if (single) {
-    compute_encoder.set_bytes(out_strides, 1, 4);
+    compute_encoder->set_bytes(out_strides, 1, 4);
     uint32_t dim0 = dims_ / 2;
     group_dims = get_block_dims(dim0, N, 1);
     grid_dims = MTL::Size(dim0, N, 1);
   } else {
-    compute_encoder.set_bytes(strides, 3, 4);
-    compute_encoder.set_bytes(out_strides, 3, 5);
+    compute_encoder->set_bytes(strides, 3, 4);
+    compute_encoder->set_bytes(out_strides, 3, 5);
     int64_t offset_stride = 0;
     if (offset.ndim() > 0) {
       offset_stride = offset.strides()[0];
     }
-    compute_encoder.set_bytes(offset_stride, 6);
-    compute_encoder.set_bytes(N, 7);
+    compute_encoder->set_bytes(offset_stride, 6);
+    compute_encoder->set_bytes(N, 7);
     uint32_t dim0 = dims_ / 2;
     uint32_t dim1 = T;
     uint32_t dim2 = B * ((N + n_per_thread - 1) / n_per_thread);
@@ -153,13 +153,13 @@ void RoPE::eval_gpu(
 
   if (with_freqs) {
     auto& freqs = inputs[2];
-    compute_encoder.set_input_array(freqs, 10);
+    compute_encoder->set_input_array(freqs, 10);
     auto freq_stride = freqs.strides()[0];
-    compute_encoder.set_bytes(freq_stride, 11);
+    compute_encoder->set_bytes(freq_stride, 11);
   } else {
-    compute_encoder.set_bytes(base, 10);
+    compute_encoder->set_bytes(base, 10);
   }
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 } // namespace mlx::core::fast

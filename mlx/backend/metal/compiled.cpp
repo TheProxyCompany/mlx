@@ -389,8 +389,8 @@ void Compiled::eval_gpu(
     kernel_name += "_large";
   }
   auto kernel = d.get_kernel(kernel_name, lib);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Put the inputs in
   int cnt = 0;
@@ -401,7 +401,7 @@ void Compiled::eval_gpu(
       continue;
     }
     auto& x = inputs[i];
-    compute_encoder.set_input_array(x, cnt++);
+    compute_encoder->set_input_array(x, cnt++);
     if (!contiguous && !is_scalar(x)) {
       in_strides.insert(
           in_strides.end(),
@@ -411,31 +411,31 @@ void Compiled::eval_gpu(
     }
   }
   if (!in_strides.empty()) {
-    compute_encoder.set_vector_bytes(in_strides, cnt++);
+    compute_encoder->set_vector_bytes(in_strides, cnt++);
   }
 
   compiled_allocate_outputs(inputs, outputs, is_constant_, contiguous);
 
   // Put the outputs in
   for (auto& x : outputs) {
-    compute_encoder.set_output_array(x, cnt++);
+    compute_encoder->set_output_array(x, cnt++);
   }
 
   // Put the output shape and strides in
   if (!contiguous) {
-    compute_encoder.set_vector_bytes(shape, cnt++);
+    compute_encoder->set_vector_bytes(shape, cnt++);
   } else {
     auto size = outputs[0].data_size();
     if (large) {
-      compute_encoder.set_bytes<int64_t>(size, cnt++);
+      compute_encoder->set_bytes<int64_t>(size, cnt++);
     } else {
-      compute_encoder.set_bytes<int>(size, cnt++);
+      compute_encoder->set_bytes<int>(size, cnt++);
     }
   }
 
   // Put the number of dims in if it is dynamic
   if (dynamic) {
-    compute_encoder.set_bytes(ndim, cnt++);
+    compute_encoder->set_bytes(ndim, cnt++);
   }
 
   // Launch the kernel
@@ -447,7 +447,7 @@ void Compiled::eval_gpu(
         ? get_2d_grid_dims(
               outputs[0].shape(), outputs[0].strides(), work_per_thread)
         : MTL::Size(nthreads, 1, 1);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   } else {
     size_t dim0 = ndim > 0 ? shape[ndim - 1] : 1;
     size_t dim1 = ndim > 1 ? shape[ndim - 2] : 1;
@@ -464,7 +464,7 @@ void Compiled::eval_gpu(
     }
     auto group_dims = get_block_dims(dim0, dim1, rest, pow2);
     MTL::Size grid_dims = MTL::Size(dim0, dim1, rest);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 

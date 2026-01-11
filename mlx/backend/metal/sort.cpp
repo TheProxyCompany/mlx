@@ -63,15 +63,15 @@ void single_block_sort(
   auto kernel = get_sort_kernel(d, kname.str(), in, out, bn, tn);
 
   // Prepare command encoder
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Set inputs
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_output_array(out, 1);
-  compute_encoder.set_bytes(size_sorted_axis, 2);
-  compute_encoder.set_bytes(in_stride_sorted_axis, 3);
-  compute_encoder.set_bytes(out_stride_sorted_axis, 4);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_output_array(out, 1);
+  compute_encoder->set_bytes(size_sorted_axis, 2);
+  compute_encoder->set_bytes(in_stride_sorted_axis, 3);
+  compute_encoder->set_bytes(out_stride_sorted_axis, 4);
 
   if (contiguous) {
     int in_stride_segment_axis = INT32_MAX;
@@ -88,27 +88,27 @@ void single_block_sort(
       out_stride_segment_axis =
           std::min(out_stride_segment_axis, static_cast<int>(out_nc_str[i]));
     }
-    compute_encoder.set_bytes(in_stride_segment_axis, 5);
-    compute_encoder.set_bytes(out_stride_segment_axis, 6);
+    compute_encoder->set_bytes(in_stride_segment_axis, 5);
+    compute_encoder->set_bytes(out_stride_segment_axis, 6);
   } else {
-    compute_encoder.set_bytes(nc_dim, 5);
+    compute_encoder->set_bytes(nc_dim, 5);
     if (nc_shape.empty()) {
       int shape = 0;
       int64_t stride = 0;
-      compute_encoder.set_bytes(shape, 6);
-      compute_encoder.set_bytes(stride, 7);
-      compute_encoder.set_bytes(stride, 8);
+      compute_encoder->set_bytes(shape, 6);
+      compute_encoder->set_bytes(stride, 7);
+      compute_encoder->set_bytes(stride, 8);
     } else {
-      compute_encoder.set_vector_bytes(nc_shape, 6);
-      compute_encoder.set_vector_bytes(in_nc_str, 7);
-      compute_encoder.set_vector_bytes(out_nc_str, 8);
+      compute_encoder->set_vector_bytes(nc_shape, 6);
+      compute_encoder->set_vector_bytes(in_nc_str, 7);
+      compute_encoder->set_vector_bytes(out_nc_str, 8);
     }
   }
 
   MTL::Size group_dims = MTL::Size(bn, 1, 1);
   MTL::Size grid_dims = MTL::Size(1, n_rows, 1);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void multi_block_sort(
@@ -160,7 +160,7 @@ void multi_block_sort(
       dev_vals_0, dev_vals_1, dev_idxs_0, dev_idxs_1, block_partitions};
 
   // Prepare command encoder
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
 
   // Do blockwise sort
   {
@@ -169,21 +169,21 @@ void multi_block_sort(
           << type_to_name(dev_idxs_0) << "_bn" << bn << "_tn" << tn;
     auto kernel =
         get_mb_sort_kernel(d, kname.str(), dev_vals_0, dev_idxs_0, bn, tn);
-    compute_encoder.set_compute_pipeline_state(kernel);
+    compute_encoder->set_compute_pipeline_state(kernel);
 
-    compute_encoder.set_input_array(in, 0);
-    compute_encoder.set_output_array(dev_vals_0, 1);
-    compute_encoder.set_output_array(dev_idxs_0, 2);
-    compute_encoder.set_bytes(size_sorted_axis, 3);
-    compute_encoder.set_bytes(stride_sorted_axis, 4);
-    compute_encoder.set_bytes(nc_dim, 5);
-    compute_encoder.set_vector_bytes(nc_shape, 6);
-    compute_encoder.set_vector_bytes(nc_str, 7);
+    compute_encoder->set_input_array(in, 0);
+    compute_encoder->set_output_array(dev_vals_0, 1);
+    compute_encoder->set_output_array(dev_idxs_0, 2);
+    compute_encoder->set_bytes(size_sorted_axis, 3);
+    compute_encoder->set_bytes(stride_sorted_axis, 4);
+    compute_encoder->set_bytes(nc_dim, 5);
+    compute_encoder->set_vector_bytes(nc_shape, 6);
+    compute_encoder->set_vector_bytes(nc_str, 7);
 
     MTL::Size group_dims = MTL::Size(bn, 1, 1);
     MTL::Size grid_dims = MTL::Size(n_blocks, n_rows, 1);
 
-    compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+    compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
   }
 
   // Do merges
@@ -210,19 +210,19 @@ void multi_block_sort(
 
       auto kernel =
           get_mb_sort_kernel(d, kname.str(), dev_vals_0, dev_idxs_0, bn, tn);
-      compute_encoder.set_compute_pipeline_state(kernel);
+      compute_encoder->set_compute_pipeline_state(kernel);
 
-      compute_encoder.set_output_array(block_partitions, 0);
-      compute_encoder.set_input_array(dev_vals_in, 1);
-      compute_encoder.set_input_array(dev_idxs_in, 2);
-      compute_encoder.set_bytes(size_sorted_axis, 3);
-      compute_encoder.set_bytes(merge_tiles, 4);
-      compute_encoder.set_bytes(n_blocks, 5);
+      compute_encoder->set_output_array(block_partitions, 0);
+      compute_encoder->set_input_array(dev_vals_in, 1);
+      compute_encoder->set_input_array(dev_idxs_in, 2);
+      compute_encoder->set_bytes(size_sorted_axis, 3);
+      compute_encoder->set_bytes(merge_tiles, 4);
+      compute_encoder->set_bytes(n_blocks, 5);
 
       MTL::Size group_dims = MTL::Size(n_thr_per_group, 1, 1);
       MTL::Size grid_dims = MTL::Size(1, n_rows, 1);
 
-      compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+      compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
     }
 
     // Do merge
@@ -233,21 +233,21 @@ void multi_block_sort(
 
       auto kernel =
           get_mb_sort_kernel(d, kname.str(), dev_vals_0, dev_idxs_0, bn, tn);
-      compute_encoder.set_compute_pipeline_state(kernel);
+      compute_encoder->set_compute_pipeline_state(kernel);
 
-      compute_encoder.set_input_array(block_partitions, 0);
-      compute_encoder.set_input_array(dev_vals_in, 1);
-      compute_encoder.set_input_array(dev_idxs_in, 2);
-      compute_encoder.set_output_array(dev_vals_out, 3);
-      compute_encoder.set_output_array(dev_idxs_out, 4);
-      compute_encoder.set_bytes(size_sorted_axis, 5);
-      compute_encoder.set_bytes(merge_tiles, 6);
-      compute_encoder.set_bytes(n_blocks, 7);
+      compute_encoder->set_input_array(block_partitions, 0);
+      compute_encoder->set_input_array(dev_vals_in, 1);
+      compute_encoder->set_input_array(dev_idxs_in, 2);
+      compute_encoder->set_output_array(dev_vals_out, 3);
+      compute_encoder->set_output_array(dev_idxs_out, 4);
+      compute_encoder->set_bytes(size_sorted_axis, 5);
+      compute_encoder->set_bytes(merge_tiles, 6);
+      compute_encoder->set_bytes(n_blocks, 7);
 
       MTL::Size group_dims = MTL::Size(bn, 1, 1);
       MTL::Size grid_dims = MTL::Size(n_blocks, n_rows, 1);
 
-      compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+      compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
     }
   }
 

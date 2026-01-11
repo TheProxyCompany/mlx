@@ -89,7 +89,7 @@ void sdpa_full_self_attention_nax(
       "_has_sinks_",
       (has_sinks ? 't' : 'n'));
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
 
   auto kernel = get_steel_attention_nax_kernel(
       d,
@@ -104,7 +104,7 @@ void sdpa_full_self_attention_nax(
       wn,
       (has_mask ? *mask : q));
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   const int NQ = (qL + bq - 1) / bq;
   const int NK = (kL + bk - 1) / bk;
@@ -138,11 +138,11 @@ void sdpa_full_self_attention_nax(
       /* int64_t V_strides[3] = */ {v.strides(0), v.strides(1), v.strides(2)},
       /* int64_t O_strides[3] = */ {o.strides(0), o.strides(1), o.strides(2)}};
 
-  compute_encoder.set_input_array(q, 0);
-  compute_encoder.set_input_array(k, 1);
-  compute_encoder.set_input_array(v, 2);
-  compute_encoder.set_output_array(o, 3);
-  compute_encoder.set_bytes(params, 4);
+  compute_encoder->set_input_array(q, 0);
+  compute_encoder->set_input_array(k, 1);
+  compute_encoder->set_input_array(v, 2);
+  compute_encoder->set_output_array(o, 3);
+  compute_encoder->set_bytes(params, 4);
 
   if (has_mask) {
     auto& m = *mask;
@@ -150,17 +150,17 @@ void sdpa_full_self_attention_nax(
     AttnMaskParams mask_params{/* int64_t M_strides[3] = */ {
         m.strides(0), m.strides(1), m.strides(2)}};
 
-    compute_encoder.set_bytes(mask_params, 5);
-    compute_encoder.set_input_array(m, 6);
+    compute_encoder->set_bytes(mask_params, 5);
+    compute_encoder->set_input_array(m, 6);
   }
   if (has_sinks) {
-    compute_encoder.set_input_array(*sinks, 7);
+    compute_encoder->set_input_array(*sinks, 7);
   }
 
   MTL::Size grid_dims = MTL::Size(NQ, H, B);
   MTL::Size group_dims = MTL::Size(32, wm, wn);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void sdpa_full_self_attention_metal(
@@ -252,7 +252,7 @@ void sdpa_full_self_attention_metal(
       "_has_sinks_",
       (has_sinks ? 't' : 'n'));
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
 
   auto kernel = get_steel_attention_kernel(
       d,
@@ -267,7 +267,7 @@ void sdpa_full_self_attention_metal(
       wn,
       (has_mask ? *mask : q));
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   const int NQ = (qL + bq - 1) / bq;
   const int NK = (kL + bk - 1) / bk;
@@ -301,11 +301,11 @@ void sdpa_full_self_attention_metal(
       /* int64_t V_strides[3] = */ {v.strides(0), v.strides(1), v.strides(2)},
       /* int64_t O_strides[3] = */ {o.strides(0), o.strides(1), o.strides(2)}};
 
-  compute_encoder.set_input_array(q, 0);
-  compute_encoder.set_input_array(k, 1);
-  compute_encoder.set_input_array(v, 2);
-  compute_encoder.set_output_array(o, 3);
-  compute_encoder.set_bytes(params, 4);
+  compute_encoder->set_input_array(q, 0);
+  compute_encoder->set_input_array(k, 1);
+  compute_encoder->set_input_array(v, 2);
+  compute_encoder->set_output_array(o, 3);
+  compute_encoder->set_bytes(params, 4);
 
   if (has_mask) {
     auto& m = *mask;
@@ -313,17 +313,17 @@ void sdpa_full_self_attention_metal(
     AttnMaskParams mask_params{/* int64_t M_strides[3] = */ {
         m.strides(0), m.strides(1), m.strides(2)}};
 
-    compute_encoder.set_bytes(mask_params, 5);
-    compute_encoder.set_input_array(m, 6);
+    compute_encoder->set_bytes(mask_params, 5);
+    compute_encoder->set_input_array(m, 6);
   }
   if (has_sinks) {
-    compute_encoder.set_input_array(*sinks, 7);
+    compute_encoder->set_input_array(*sinks, 7);
   }
 
   MTL::Size grid_dims = MTL::Size(NQ, H, B);
   MTL::Size group_dims = MTL::Size(32, wm, wn);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void sdpa_vector(
@@ -378,41 +378,41 @@ void sdpa_vector(
   hash_name += has_sinks ? "_sinks" : "_nosinks";
 
   // Get the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kname, hash_name, func_consts);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Set its arguments
-  compute_encoder.set_input_array(q, 0);
-  compute_encoder.set_input_array(k, 1);
-  compute_encoder.set_input_array(v, 2);
-  compute_encoder.set_output_array(out, 3);
-  compute_encoder.set_bytes(gqa_factor, 4);
-  compute_encoder.set_bytes(N, 5);
-  compute_encoder.set_bytes(k_head_stride, 6);
-  compute_encoder.set_bytes(k_seq_stride, 7);
-  compute_encoder.set_bytes(v_head_stride, 8);
-  compute_encoder.set_bytes(v_seq_stride, 9);
+  compute_encoder->set_input_array(q, 0);
+  compute_encoder->set_input_array(k, 1);
+  compute_encoder->set_input_array(v, 2);
+  compute_encoder->set_output_array(out, 3);
+  compute_encoder->set_bytes(gqa_factor, 4);
+  compute_encoder->set_bytes(N, 5);
+  compute_encoder->set_bytes(k_head_stride, 6);
+  compute_encoder->set_bytes(k_seq_stride, 7);
+  compute_encoder->set_bytes(v_head_stride, 8);
+  compute_encoder->set_bytes(v_seq_stride, 9);
 
-  compute_encoder.set_bytes(scale, 10);
+  compute_encoder->set_bytes(scale, 10);
   if (has_mask) {
     auto& m = *mask;
-    compute_encoder.set_input_array(m, 11 + float_mask);
+    compute_encoder->set_input_array(m, 11 + float_mask);
     int32_t kv_seq_stride = m.shape(3) > 1 ? m.strides(3) : 0;
     int32_t q_seq_stride = m.shape(2) > 1 ? m.strides(2) : 0;
     int32_t head_stride =
         m.shape(1) > 1 ? m.strides(1) : (m.shape(0) > 1 ? m.strides(0) : 0);
-    compute_encoder.set_bytes(kv_seq_stride, 13);
-    compute_encoder.set_bytes(q_seq_stride, 14);
-    compute_encoder.set_bytes(head_stride, 15);
+    compute_encoder->set_bytes(kv_seq_stride, 13);
+    compute_encoder->set_bytes(q_seq_stride, 14);
+    compute_encoder->set_bytes(head_stride, 15);
   }
   if (has_sinks) {
-    compute_encoder.set_input_array(*sinks, 16);
-    compute_encoder.set_bytes(q.shape(1), 17);
+    compute_encoder->set_input_array(*sinks, 16);
+    compute_encoder->set_bytes(q.shape(1), 17);
   }
 
   // Launch
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void sdpa_vector_2pass(
@@ -487,43 +487,43 @@ void sdpa_vector_2pass(
   hash_name += has_sinks ? "_sinks" : "_nosinks";
 
   // Get the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kname, hash_name, func_consts);
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Set its arguments
-  compute_encoder.set_input_array(q, 0);
-  compute_encoder.set_input_array(k, 1);
-  compute_encoder.set_input_array(v, 2);
-  compute_encoder.set_output_array(intermediate, 3);
-  compute_encoder.set_output_array(sums, 4);
-  compute_encoder.set_output_array(maxs, 5);
-  compute_encoder.set_bytes(gqa_factor, 6);
-  compute_encoder.set_bytes(N, 7);
-  compute_encoder.set_bytes(k_head_stride, 8);
-  compute_encoder.set_bytes(k_seq_stride, 9);
-  compute_encoder.set_bytes(v_head_stride, 10);
-  compute_encoder.set_bytes(v_seq_stride, 11);
-  compute_encoder.set_bytes(scale, 12);
+  compute_encoder->set_input_array(q, 0);
+  compute_encoder->set_input_array(k, 1);
+  compute_encoder->set_input_array(v, 2);
+  compute_encoder->set_output_array(intermediate, 3);
+  compute_encoder->set_output_array(sums, 4);
+  compute_encoder->set_output_array(maxs, 5);
+  compute_encoder->set_bytes(gqa_factor, 6);
+  compute_encoder->set_bytes(N, 7);
+  compute_encoder->set_bytes(k_head_stride, 8);
+  compute_encoder->set_bytes(k_seq_stride, 9);
+  compute_encoder->set_bytes(v_head_stride, 10);
+  compute_encoder->set_bytes(v_seq_stride, 11);
+  compute_encoder->set_bytes(scale, 12);
   if (has_mask) {
     auto& m = *mask;
-    compute_encoder.set_input_array(m, 13 + float_mask);
+    compute_encoder->set_input_array(m, 13 + float_mask);
     int32_t kv_seq_stride = m.shape(3) > 1 ? m.strides(3) : 0;
     int32_t q_seq_stride = m.shape(2) > 1 ? m.strides(2) : 0;
     int32_t head_stride =
         m.shape(1) > 1 ? m.strides(1) : (m.shape(0) > 1 ? m.strides(0) : 0);
-    compute_encoder.set_bytes(kv_seq_stride, 15);
-    compute_encoder.set_bytes(q_seq_stride, 16);
-    compute_encoder.set_bytes(head_stride, 17);
+    compute_encoder->set_bytes(kv_seq_stride, 15);
+    compute_encoder->set_bytes(q_seq_stride, 16);
+    compute_encoder->set_bytes(head_stride, 17);
   }
   if (has_sinks) {
-    compute_encoder.set_input_array(*sinks, 18);
-    compute_encoder.set_bytes(q.shape(1), 19);
+    compute_encoder->set_input_array(*sinks, 18);
+    compute_encoder->set_bytes(q.shape(1), 19);
   }
 
   // Launch
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
   // Final pass
   kname.clear();
@@ -534,18 +534,18 @@ void sdpa_vector_2pass(
 
   // Get the kernel
   kernel = d.get_kernel(kname);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Set its arguments
-  compute_encoder.set_input_array(intermediate, 0);
-  compute_encoder.set_input_array(sums, 1);
-  compute_encoder.set_input_array(maxs, 2);
-  compute_encoder.set_output_array(out, 3);
+  compute_encoder->set_input_array(intermediate, 0);
+  compute_encoder->set_input_array(sums, 1);
+  compute_encoder->set_input_array(maxs, 2);
+  compute_encoder->set_output_array(out, 3);
 
   // Launch
   group_dims = MTL::Size(1024, 1, 1);
   grid_dims = MTL::Size(B, q.shape(2), 1);
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 } // namespace

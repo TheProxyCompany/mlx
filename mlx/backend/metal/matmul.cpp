@@ -245,7 +245,7 @@ void steel_matmul_regular_axpby_nax(
   std::string hash_name = kname.str();
 
   // Encode and dispatch kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_fused_nax_kernel(
       /* metal::Device& d = */ d,
       /* const std::string& kernel_name = */ base_name,
@@ -260,7 +260,7 @@ void steel_matmul_regular_axpby_nax(
       /* int wm = */ wm,
       /* int wn = */ wn);
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Use problem size to determine threadblock swizzle
   int tn = (N + bn - 1) / bn;
@@ -295,15 +295,15 @@ void steel_matmul_regular_axpby_nax(
   MTL::Size grid_dims = MTL::Size(tn, tm, batch_size_out);
 
   // Launch kernel
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_output_array(out, 3);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_output_array(out, 3);
 
-  compute_encoder.set_bytes(params, 4);
+  compute_encoder->set_bytes(params, 4);
 
   if (has_batch) {
-    compute_encoder.set_vector_bytes(batch_shape, 6);
-    compute_encoder.set_vector_bytes(batch_strides, 7);
+    compute_encoder->set_vector_bytes(batch_shape, 6);
+    compute_encoder->set_vector_bytes(batch_strides, 7);
   }
 
   if (use_out_source) {
@@ -317,11 +317,11 @@ void steel_matmul_regular_axpby_nax(
         /* const float alpha = */ alpha,
         /* const float beta = */ beta};
 
-    compute_encoder.set_input_array(c, 2);
-    compute_encoder.set_bytes(params, 5);
+    compute_encoder->set_input_array(c, 2);
+    compute_encoder->set_bytes(params, 5);
   }
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
   // Record copies
   d.add_temporaries(std::move(copies), s.index);
@@ -432,7 +432,7 @@ void steel_matmul_regular_axpby(
   std::string hash_name = kname.str();
 
   // Encode and dispatch kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_fused_kernel(
       /* metal::Device& d = */ d,
       /* const std::string& kernel_name = */ base_name,
@@ -447,7 +447,7 @@ void steel_matmul_regular_axpby(
       /* int wm = */ wm,
       /* int wn = */ wn);
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Use problem size to determine threadblock swizzle
   int tn = (N + bn - 1) / bn;
@@ -482,15 +482,15 @@ void steel_matmul_regular_axpby(
   MTL::Size grid_dims = MTL::Size(tn, tm, batch_size_out);
 
   // Launch kernel
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_output_array(out, 3);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_output_array(out, 3);
 
-  compute_encoder.set_bytes(params, 4);
+  compute_encoder->set_bytes(params, 4);
 
   if (has_batch) {
-    compute_encoder.set_vector_bytes(batch_shape, 6);
-    compute_encoder.set_vector_bytes(batch_strides, 7);
+    compute_encoder->set_vector_bytes(batch_shape, 6);
+    compute_encoder->set_vector_bytes(batch_strides, 7);
   }
 
   if (use_out_source) {
@@ -504,11 +504,11 @@ void steel_matmul_regular_axpby(
         /* const float alpha = */ alpha,
         /* const float beta = */ beta};
 
-    compute_encoder.set_input_array(c, 2);
-    compute_encoder.set_bytes(params, 5);
+    compute_encoder->set_input_array(c, 2);
+    compute_encoder->set_bytes(params, 5);
   }
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
   // Record copies
   d.add_temporaries(std::move(copies), s.index);
@@ -575,7 +575,7 @@ void steel_gemm_splitk_axpby(
         << "_K_" << (k_aligned ? "t" : "n") << "aligned"; // clang-format on
 
   // Encode and dispatch gemm kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_splitk_kernel(
       /* metal::Device& d = */ d,
       /* const std::string& kernel_name = */ kname.str(),
@@ -591,7 +591,7 @@ void steel_gemm_splitk_axpby(
       /* bool mn_aligned = */ mn_aligned,
       /* bool k_aligned = */ k_aligned);
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int tn = (N + bn - 1) / bn;
   int tm = (M + bm - 1) / bm;
@@ -613,12 +613,12 @@ void steel_gemm_splitk_axpby(
   MTL::Size group_dims = MTL::Size(32, wn, wm);
   MTL::Size grid_dims = MTL::Size(tn, tm, split_k_partitions);
 
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_output_array(C_split, 2);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_output_array(C_split, 2);
 
-  compute_encoder.set_bytes(params, 3);
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->set_bytes(params, 3);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
   // Do accum kernel
   {
@@ -637,30 +637,30 @@ void steel_gemm_splitk_axpby(
         /* const array& in = */ C_split,
         /* const array& out = */ out,
         /* bool axbpy = */ do_axpby);
-    compute_encoder.set_compute_pipeline_state(kernel);
+    compute_encoder->set_compute_pipeline_state(kernel);
 
     // Set the arguments for the kernel
-    compute_encoder.set_input_array(C_split, 0);
-    compute_encoder.set_output_array(out, 1);
-    compute_encoder.set_bytes(split_k_partitions, 2);
-    compute_encoder.set_bytes(split_k_partition_stride, 3);
-    compute_encoder.set_bytes(N, 4);
+    compute_encoder->set_input_array(C_split, 0);
+    compute_encoder->set_output_array(out, 1);
+    compute_encoder->set_bytes(split_k_partitions, 2);
+    compute_encoder->set_bytes(split_k_partition_stride, 3);
+    compute_encoder->set_bytes(N, 4);
 
     if (do_axpby) {
       int ldc = c.strides()[c.ndim() - 2];
       int fdc = c.strides()[c.ndim() - 1];
 
-      compute_encoder.set_input_array(c, 5);
-      compute_encoder.set_bytes(ldc, 6);
-      compute_encoder.set_bytes(fdc, 7);
-      compute_encoder.set_bytes(alpha, 8);
-      compute_encoder.set_bytes(beta, 9);
+      compute_encoder->set_input_array(c, 5);
+      compute_encoder->set_bytes(ldc, 6);
+      compute_encoder->set_bytes(fdc, 7);
+      compute_encoder->set_bytes(alpha, 8);
+      compute_encoder->set_bytes(beta, 9);
     }
 
     // Launch enough thread groups for each output
     MTL::Size grid_dims = MTL::Size(N, M, 1);
     auto group_dims = get_block_dims(N, M, 1);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 
   d.add_temporaries(std::move(copies), s.index);
@@ -912,40 +912,40 @@ void gemv_axbpy(
         << "_axpby" << do_axpby; // clang-format on
 
   // Encode and dispatch kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kname.str());
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int n_tgp = (out_vector_len + n_out_per_tgp - 1) / n_out_per_tgp;
   MTL::Size group_dims = MTL::Size(32, bn, bm);
   MTL::Size grid_dims = MTL::Size(n_tgp, 1, batch_size_out);
 
-  compute_encoder.set_input_array(mat, 0);
-  compute_encoder.set_input_array(vec, 1);
-  compute_encoder.set_output_array(out, 3);
+  compute_encoder->set_input_array(mat, 0);
+  compute_encoder->set_input_array(vec, 1);
+  compute_encoder->set_output_array(out, 3);
 
-  compute_encoder.set_bytes(in_vector_len, 4);
-  compute_encoder.set_bytes(out_vector_len, 5);
-  compute_encoder.set_bytes(mat_ld, 6);
+  compute_encoder->set_bytes(in_vector_len, 4);
+  compute_encoder->set_bytes(out_vector_len, 5);
+  compute_encoder->set_bytes(mat_ld, 6);
 
-  compute_encoder.set_bytes(batch_ndim, 9);
-  compute_encoder.set_vector_bytes(batch_shape, 10);
-  compute_encoder.set_vector_bytes(batch_strides_vec, 11);
-  compute_encoder.set_vector_bytes(batch_strides_mat, 12);
+  compute_encoder->set_bytes(batch_ndim, 9);
+  compute_encoder->set_vector_bytes(batch_shape, 10);
+  compute_encoder->set_vector_bytes(batch_strides_vec, 11);
+  compute_encoder->set_vector_bytes(batch_strides_mat, 12);
 
   if (do_axpby) {
-    compute_encoder.set_input_array(c, 2);
+    compute_encoder->set_input_array(c, 2);
 
-    compute_encoder.set_bytes(alpha, 7);
-    compute_encoder.set_bytes(beta, 8);
+    compute_encoder->set_bytes(alpha, 7);
+    compute_encoder->set_bytes(beta, 8);
 
-    compute_encoder.set_vector_bytes(C_batch_stride, 13);
+    compute_encoder->set_vector_bytes(C_batch_stride, 13);
 
     int bias_stride = c.strides()[c.ndim() - 1];
-    compute_encoder.set_bytes(bias_stride, 14);
+    compute_encoder->set_bytes(bias_stride, 14);
   }
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
   d.add_temporaries(std::move(copies), s.index);
 }
@@ -1423,8 +1423,8 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
         tn,
         contiguous_kernel);
 
-    auto& compute_encoder = d.get_command_encoder(s.index);
-    compute_encoder.set_compute_pipeline_state(kernel);
+    auto compute_encoder = d.get_command_encoder(s.index);
+    compute_encoder->set_compute_pipeline_state(kernel);
 
     int n_tgp = (out_vector_len + n_out_per_tgp - 1) / n_out_per_tgp;
     MTL::Size group_dims = MTL::Size(32, bn, bm);
@@ -1449,7 +1449,7 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
           outmask_bstride.begin(),
           outmask_bstride.end());
 
-      compute_encoder.set_input_array(out_mask, 20);
+      compute_encoder->set_input_array(out_mask, 20);
     }
 
     if (has_op_mask) {
@@ -1468,7 +1468,7 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
           mask_bstrides_mat.begin(),
           mask_bstrides_mat.end());
 
-      compute_encoder.set_input_array(mat_mask, 21);
+      compute_encoder->set_input_array(mat_mask, 21);
 
       auto& vec_mask = inputs[vec_mask_idx];
       if (transpose_mat) {
@@ -1484,26 +1484,26 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
           mask_bstrides_vec.begin(),
           mask_bstrides_vec.end());
 
-      compute_encoder.set_input_array(vec_mask, 22);
+      compute_encoder->set_input_array(vec_mask, 22);
     }
 
     // Get gemv params
-    compute_encoder.set_input_array(mat, 0);
-    compute_encoder.set_input_array(vec, 1);
-    compute_encoder.set_output_array(out, 3);
+    compute_encoder->set_input_array(mat, 0);
+    compute_encoder->set_input_array(vec, 1);
+    compute_encoder->set_output_array(out, 3);
 
-    compute_encoder.set_bytes(in_vector_len, 4);
-    compute_encoder.set_bytes(out_vector_len, 5);
-    compute_encoder.set_bytes(mat_ld, 6);
-    compute_encoder.set_bytes(batch_ndim, 9);
-    compute_encoder.set_vector_bytes(batch_shape, 10);
-    compute_encoder.set_vector_bytes(batch_strides_vec, 11);
-    compute_encoder.set_vector_bytes(batch_strides_mat, 12);
+    compute_encoder->set_bytes(in_vector_len, 4);
+    compute_encoder->set_bytes(out_vector_len, 5);
+    compute_encoder->set_bytes(mat_ld, 6);
+    compute_encoder->set_bytes(batch_ndim, 9);
+    compute_encoder->set_vector_bytes(batch_shape, 10);
+    compute_encoder->set_vector_bytes(batch_strides_vec, 11);
+    compute_encoder->set_vector_bytes(batch_strides_mat, 12);
 
-    compute_encoder.set_vector_bytes(mask_strides, 23);
-    compute_encoder.set_vector_bytes(mask_batch_strides, 24);
+    compute_encoder->set_vector_bytes(mask_strides, 23);
+    compute_encoder->set_vector_bytes(mask_batch_strides, 24);
 
-    compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+    compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
     d.add_temporaries(std::move(copies), s.index);
     return;
@@ -1528,7 +1528,7 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
         << "_K_" << (k_aligned ? "t" : "n") << "aligned";
 
   // Encode and dispatch kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_masked_kernel(
       d,
       kname.str(),
@@ -1544,7 +1544,7 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
       wn,
       mn_aligned,
       k_aligned);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Use problem size to determine threadblock swizzle
   int tn = (N + bn - 1) / bn;
@@ -1585,7 +1585,7 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
     mask_strides.push_back(*(out_mask.strides().end() - 1));
     mask_strides.push_back(*(out_mask.strides().end() - 2));
 
-    compute_encoder.set_input_array(out_mask, 10);
+    compute_encoder->set_input_array(out_mask, 10);
   }
 
   if (has_op_mask) {
@@ -1593,28 +1593,28 @@ void BlockMaskedMM::eval_gpu(const std::vector<array>& inputs, array& out) {
     mask_strides.push_back(*(lhs_mask.strides().end() - 1));
     mask_strides.push_back(*(lhs_mask.strides().end() - 2));
 
-    compute_encoder.set_input_array(lhs_mask, 11);
+    compute_encoder->set_input_array(lhs_mask, 11);
 
     auto& rhs_mask = inputs[3 + has_out_mask];
     mask_strides.push_back(*(rhs_mask.strides().end() - 1));
     mask_strides.push_back(*(rhs_mask.strides().end() - 2));
 
-    compute_encoder.set_input_array(rhs_mask, 12);
+    compute_encoder->set_input_array(rhs_mask, 12);
   }
 
   // Launch kernel
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_output_array(out, 3);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_output_array(out, 3);
 
-  compute_encoder.set_bytes(params, 4);
+  compute_encoder->set_bytes(params, 4);
 
-  compute_encoder.set_vector_bytes(batch_shape, 6);
-  compute_encoder.set_vector_bytes(batch_strides, 7);
+  compute_encoder->set_vector_bytes(batch_shape, 6);
+  compute_encoder->set_vector_bytes(batch_strides, 7);
 
-  compute_encoder.set_vector_bytes(mask_strides, 13);
+  compute_encoder->set_vector_bytes(mask_strides, 13);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 
   d.add_temporaries(std::move(copies), s.index);
 }
@@ -1707,7 +1707,7 @@ void gather_mm_rhs(
       align_K ? 't' : 'n');
 
   // Get and set the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_gather_kernel(
       d,
       base_name,
@@ -1722,7 +1722,7 @@ void gather_mm_rhs(
       wm,
       wn,
       true);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Prepare the matmul params
   auto batch_stride_b = b.ndim() > 2 ? b.strides()[b.ndim() - 3] : b.size();
@@ -1747,13 +1747,13 @@ void gather_mm_rhs(
   MTL::Size grid_dims = MTL::Size(params.tiles_n, params.tiles_m, 1);
 
   // Launch kernel
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_input_array(indices, 2);
-  compute_encoder.set_output_array(out, 3);
-  compute_encoder.set_bytes(params, 4);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_input_array(indices, 2);
+  compute_encoder->set_output_array(out, 3);
+  compute_encoder->set_bytes(params, 4);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_mm_rhs_nax(
@@ -1850,7 +1850,7 @@ void gather_mm_rhs_nax(
       align_K ? 't' : 'n');
 
   // Get and set the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_gather_nax_kernel(
       d,
       base_name,
@@ -1865,7 +1865,7 @@ void gather_mm_rhs_nax(
       wm,
       wn,
       true);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Prepare the matmul params
   auto batch_stride_b = b.ndim() > 2 ? b.strides()[b.ndim() - 3] : b.size();
@@ -1890,13 +1890,13 @@ void gather_mm_rhs_nax(
   MTL::Size grid_dims = MTL::Size(params.tiles_n, params.tiles_m, 1);
 
   // Launch kernel
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_input_array(indices, 2);
-  compute_encoder.set_output_array(out, 3);
-  compute_encoder.set_bytes(params, 4);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_input_array(indices, 2);
+  compute_encoder->set_output_array(out, 3);
+  compute_encoder->set_bytes(params, 4);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_mv(
@@ -1982,38 +1982,38 @@ void gather_mv(
         << tm << "_tn" << tn;
 
   // Encode and dispatch kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kname.str());
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   int n_tgp = (out_vector_len + n_out_per_tgp - 1) / n_out_per_tgp;
   MTL::Size group_dims = MTL::Size(32, bn, bm);
   MTL::Size grid_dims = MTL::Size(n_tgp, 1, batch_size_out);
 
-  compute_encoder.set_input_array(mat, 0);
-  compute_encoder.set_input_array(vec, 1);
-  compute_encoder.set_output_array(out, 3);
+  compute_encoder->set_input_array(mat, 0);
+  compute_encoder->set_input_array(vec, 1);
+  compute_encoder->set_output_array(out, 3);
 
-  compute_encoder.set_bytes(in_vector_len, 4);
-  compute_encoder.set_bytes(out_vector_len, 5);
-  compute_encoder.set_bytes(mat_ld, 6);
+  compute_encoder->set_bytes(in_vector_len, 4);
+  compute_encoder->set_bytes(out_vector_len, 5);
+  compute_encoder->set_bytes(mat_ld, 6);
 
-  compute_encoder.set_bytes(batch_ndim, 9);
-  compute_encoder.set_vector_bytes(out.shape(), 10);
-  compute_encoder.set_vector_bytes(index_strides, 11);
+  compute_encoder->set_bytes(batch_ndim, 9);
+  compute_encoder->set_vector_bytes(out.shape(), 10);
+  compute_encoder->set_vector_bytes(index_strides, 11);
 
-  compute_encoder.set_bytes(batch_ndim_vec, 12);
-  compute_encoder.set_vector_bytes(vec.shape(), 13);
-  compute_encoder.set_vector_bytes(vec.strides(), 14);
+  compute_encoder->set_bytes(batch_ndim_vec, 12);
+  compute_encoder->set_vector_bytes(vec.shape(), 13);
+  compute_encoder->set_vector_bytes(vec.strides(), 14);
 
-  compute_encoder.set_bytes(batch_ndim_mat, 15);
-  compute_encoder.set_vector_bytes(mat.shape(), 16);
-  compute_encoder.set_vector_bytes(mat.strides(), 17);
+  compute_encoder->set_bytes(batch_ndim_mat, 15);
+  compute_encoder->set_vector_bytes(mat.shape(), 16);
+  compute_encoder->set_vector_bytes(mat.strides(), 17);
 
-  compute_encoder.set_input_array(vec_indices_, 18);
-  compute_encoder.set_input_array(mat_indices_, 19);
+  compute_encoder->set_input_array(vec_indices_, 18);
+  compute_encoder->set_input_array(mat_indices_, 19);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void gather_mm(
@@ -2095,7 +2095,7 @@ void gather_mm(
       align_K ? 't' : 'n');
 
   // Get and set the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_gather_kernel(
       d,
       base_name,
@@ -2110,7 +2110,7 @@ void gather_mm(
       wm,
       wn,
       false);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Prepare the matmul params
   steel::GEMMParams params{
@@ -2137,22 +2137,22 @@ void gather_mm(
       MTL::Size(params.tiles_n, params.tiles_m, batch_size_out);
 
   // Launch kernel
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_input_array(lhs_indices, 2);
-  compute_encoder.set_input_array(rhs_indices, 3);
-  compute_encoder.set_output_array(out, 4);
-  compute_encoder.set_bytes(params, 5);
-  compute_encoder.set_vector_bytes(lhs_indices.shape(), 6);
-  compute_encoder.set_vector_bytes(lhs_indices.strides(), 7);
-  compute_encoder.set_vector_bytes(rhs_indices.strides(), 8);
-  compute_encoder.set_bytes(batch_ndim_a, 9);
-  compute_encoder.set_vector_bytes(a.shape(), 10);
-  compute_encoder.set_vector_bytes(a.strides(), 11);
-  compute_encoder.set_bytes(batch_ndim_b, 12);
-  compute_encoder.set_vector_bytes(b.shape(), 13);
-  compute_encoder.set_vector_bytes(b.strides(), 14);
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_input_array(lhs_indices, 2);
+  compute_encoder->set_input_array(rhs_indices, 3);
+  compute_encoder->set_output_array(out, 4);
+  compute_encoder->set_bytes(params, 5);
+  compute_encoder->set_vector_bytes(lhs_indices.shape(), 6);
+  compute_encoder->set_vector_bytes(lhs_indices.strides(), 7);
+  compute_encoder->set_vector_bytes(rhs_indices.strides(), 8);
+  compute_encoder->set_bytes(batch_ndim_a, 9);
+  compute_encoder->set_vector_bytes(a.shape(), 10);
+  compute_encoder->set_vector_bytes(a.strides(), 11);
+  compute_encoder->set_bytes(batch_ndim_b, 12);
+  compute_encoder->set_vector_bytes(b.shape(), 13);
+  compute_encoder->set_vector_bytes(b.strides(), 14);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void GatherMM::eval_gpu(const std::vector<array>& inputs, array& out) {
@@ -2300,7 +2300,7 @@ void segmented_mm(
       align_N ? 't' : 'n');
 
   // Get and set the kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_gemm_segmented_kernel(
       d,
       base_name,
@@ -2314,7 +2314,7 @@ void segmented_mm(
       bk,
       wm,
       wn);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Prepare the matmul params
   steel::GEMMParams params{
@@ -2339,12 +2339,12 @@ void segmented_mm(
       MTL::Size(params.tiles_n, params.tiles_m, batch_size_out);
 
   // Launch kernel
-  compute_encoder.set_input_array(a, 0);
-  compute_encoder.set_input_array(b, 1);
-  compute_encoder.set_input_array(segments, 2);
-  compute_encoder.set_output_array(out, 3);
-  compute_encoder.set_bytes(params, 4);
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->set_input_array(a, 0);
+  compute_encoder->set_input_array(b, 1);
+  compute_encoder->set_input_array(segments, 2);
+  compute_encoder->set_output_array(out, 3);
+  compute_encoder->set_bytes(params, 4);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void SegmentedMM::eval_gpu(const std::vector<array>& inputs, array& out) {

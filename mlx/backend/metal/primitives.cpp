@@ -58,51 +58,51 @@ void Arange::eval_gpu(const std::vector<array>& inputs, array& out) {
   MTL::Size grid_dims = MTL::Size(nthreads, 1, 1);
   MTL::Size group_dims = MTL::Size(
       std::min(nthreads, kernel->maxTotalThreadsPerThreadgroup()), 1, 1);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   switch (out.dtype()) {
     case bool_: // unsupported
       throw std::runtime_error("[Arange::eval_gpu] Does not support bool");
     case uint8:
-      arange_set_scalars<uint8_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<uint8_t>(start_, start_ + step_, *compute_encoder);
       break;
     case uint16:
-      arange_set_scalars<uint16_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<uint16_t>(start_, start_ + step_, *compute_encoder);
       break;
     case uint32:
-      arange_set_scalars<uint32_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<uint32_t>(start_, start_ + step_, *compute_encoder);
       break;
     case uint64:
-      arange_set_scalars<uint64_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<uint64_t>(start_, start_ + step_, *compute_encoder);
       break;
     case int8:
-      arange_set_scalars<int8_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<int8_t>(start_, start_ + step_, *compute_encoder);
       break;
     case int16:
-      arange_set_scalars<int16_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<int16_t>(start_, start_ + step_, *compute_encoder);
       break;
     case int32:
-      arange_set_scalars<int32_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<int32_t>(start_, start_ + step_, *compute_encoder);
       break;
     case int64:
-      arange_set_scalars<int64_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<int64_t>(start_, start_ + step_, *compute_encoder);
       break;
     case float16:
-      arange_set_scalars<float16_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<float16_t>(start_, start_ + step_, *compute_encoder);
       break;
     case float32:
-      arange_set_scalars<float>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<float>(start_, start_ + step_, *compute_encoder);
       break;
     case bfloat16:
-      arange_set_scalars<bfloat16_t>(start_, start_ + step_, compute_encoder);
+      arange_set_scalars<bfloat16_t>(start_, start_ + step_, *compute_encoder);
       break;
     default:
       throw std::runtime_error("[Arange::eval_gpu] Does not support type.");
   }
 
-  compute_encoder.set_output_array(out, 2);
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->set_output_array(out, 2);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void ArgReduce::eval_gpu(const std::vector<array>& inputs, array& out) {
@@ -137,7 +137,7 @@ void ArgReduce::eval_gpu(const std::vector<array>& inputs, array& out) {
   // ArgReduce
   int simd_size = 32;
   int n_reads = 4;
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   {
     auto kernel = d.get_kernel(op_name + type_to_name(in));
     NS::UInteger thread_group_size = std::min(
@@ -151,25 +151,25 @@ void ArgReduce::eval_gpu(const std::vector<array>& inputs, array& out) {
     auto gd = get_2d_grid_dims(out.shape(), out.strides());
     MTL::Size grid_dims = MTL::Size(thread_group_size, gd.width, gd.height);
     MTL::Size group_dims = MTL::Size(thread_group_size, 1, 1);
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(in, 0);
-    compute_encoder.set_output_array(out, 1);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(in, 0);
+    compute_encoder->set_output_array(out, 1);
     if (ndim == 0) {
       // Pass place holders so metal doesn't complain
       int shape_ = 0;
       int64_t stride_ = 0;
-      compute_encoder.set_bytes(shape_, 2);
-      compute_encoder.set_bytes(stride_, 3);
-      compute_encoder.set_bytes(stride_, 4);
+      compute_encoder->set_bytes(shape_, 2);
+      compute_encoder->set_bytes(stride_, 3);
+      compute_encoder->set_bytes(stride_, 4);
     } else {
-      compute_encoder.set_vector_bytes(shape, 2);
-      compute_encoder.set_vector_bytes(in_strides, 3);
-      compute_encoder.set_vector_bytes(out_strides, 4);
+      compute_encoder->set_vector_bytes(shape, 2);
+      compute_encoder->set_vector_bytes(in_strides, 3);
+      compute_encoder->set_vector_bytes(out_strides, 4);
     }
-    compute_encoder.set_bytes(ndim, 5);
-    compute_encoder.set_bytes(axis_stride, 6);
-    compute_encoder.set_bytes(axis_size, 7);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->set_bytes(ndim, 5);
+    compute_encoder->set_bytes(axis_stride, 6);
+    compute_encoder->set_bytes(axis_size, 7);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 
@@ -226,21 +226,21 @@ void RandomBits::eval_gpu(const std::vector<array>& inputs, array& out) {
   // organize into grid nkeys x elem_per_key
   MTL::Size grid_dims = MTL::Size(num_keys, half_size + odd, 1);
   auto group_dims = get_block_dims(num_keys, half_size + odd, 1);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
-  compute_encoder.set_input_array(keys, 0);
-  compute_encoder.set_output_array(out, 1);
-  compute_encoder.set_bytes(odd, 2);
-  compute_encoder.set_bytes(bytes_per_key, 3);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
+  compute_encoder->set_input_array(keys, 0);
+  compute_encoder->set_output_array(out, 1);
+  compute_encoder->set_bytes(odd, 2);
+  compute_encoder->set_bytes(bytes_per_key, 3);
 
   if (!keys.flags().row_contiguous) {
     int ndim = keys.ndim();
-    compute_encoder.set_bytes(ndim, 4);
-    compute_encoder.set_vector_bytes(keys.shape(), 5);
-    compute_encoder.set_vector_bytes(keys.strides(), 6);
+    compute_encoder->set_bytes(ndim, 4);
+    compute_encoder->set_vector_bytes(keys.shape(), 5);
+    compute_encoder->set_vector_bytes(keys.strides(), 6);
   }
 
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void QRF::eval_gpu(

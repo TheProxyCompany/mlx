@@ -80,20 +80,20 @@ void Fence::wait(Stream stream, const array& x) {
     return;
   }
 
-  auto& compute_encoder = d.get_command_encoder(idx);
+  auto compute_encoder = d.get_command_encoder(idx);
 
   // Register outputs to ensure that no kernels which depends on the
   // output starts before this one is done
-  compute_encoder.register_output_array(x);
+  compute_encoder->register_output_array(x);
 
   auto kernel = d.get_kernel("fence_wait");
   MTL::Size kernel_dims = MTL::Size(1, 1, 1);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   auto buf = static_cast<MTL::Buffer*>(f.fence);
-  compute_encoder.set_buffer(buf, 0);
-  compute_encoder.set_bytes(f.count, 1);
-  compute_encoder.dispatch_threads(kernel_dims, kernel_dims);
+  compute_encoder->set_buffer(buf, 0);
+  compute_encoder->set_bytes(f.count, 1);
+  compute_encoder->dispatch_threads(kernel_dims, kernel_dims);
 
   d.get_command_buffer(idx)->addCompletedHandler(
       [fence_ = fence_](MTL::CommandBuffer* cbuf) {});
@@ -129,31 +129,31 @@ void Fence::update(Stream stream, const array& x, bool cross_device) {
   }
 
   // Launch input visibility kernels
-  auto& compute_encoder = d.get_command_encoder(idx);
+  auto compute_encoder = d.get_command_encoder(idx);
   if (cross_device) {
     auto kernel = d.get_kernel("input_coherent");
     uint32_t nthreads = (x.data_size() * x.itemsize() + sizeof(uint32_t) - 1) /
         sizeof(uint32_t);
     MTL::Size group_dims = MTL::Size(1024, 1, 1);
     MTL::Size grid_dims = MTL::Size((nthreads + 1024 - 1) / 1024, 1, 1);
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(x, 0);
-    compute_encoder.set_bytes(nthreads, 1);
-    compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(x, 0);
+    compute_encoder->set_bytes(nthreads, 1);
+    compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
   }
 
   // Barrier on previous kernels
-  compute_encoder.barrier();
+  compute_encoder->barrier();
 
   // Launch value update kernel
   auto kernel = d.get_kernel("fence_update");
   MTL::Size kernel_dims = MTL::Size(1, 1, 1);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   auto buf = static_cast<MTL::Buffer*>(f.fence);
-  compute_encoder.set_buffer(buf, 0);
-  compute_encoder.set_bytes(f.count, 1);
-  compute_encoder.dispatch_threads(kernel_dims, kernel_dims);
+  compute_encoder->set_buffer(buf, 0);
+  compute_encoder->set_bytes(f.count, 1);
+  compute_encoder->dispatch_threads(kernel_dims, kernel_dims);
 
   d.get_command_buffer(idx)->addCompletedHandler(
       [fence_ = fence_](MTL::CommandBuffer* cbuf) {});

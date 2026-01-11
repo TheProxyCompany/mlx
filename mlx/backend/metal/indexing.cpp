@@ -93,21 +93,21 @@ void Gather::eval_gpu(const std::vector<array>& inputs, array& out) {
       return kernel_source;
     });
 
-    auto& compute_encoder = d.get_command_encoder(s.index);
+    auto compute_encoder = d.get_command_encoder(s.index);
     auto kernel = d.get_kernel(kernel_name, lib);
-    compute_encoder.set_compute_pipeline_state(kernel);
+    compute_encoder->set_compute_pipeline_state(kernel);
 
     size_t dim_x = (slice_size + work_per_thread - 1) / work_per_thread;
     size_t dim_y = indices.size();
     auto group_dims = get_block_dims(dim_x, dim_y, 1);
     MTL::Size grid_dims = MTL::Size(dim_x, dim_y, 1);
 
-    compute_encoder.set_input_array(src, 0);
-    compute_encoder.set_input_array(indices, 1);
-    compute_encoder.set_output_array(out, 2);
-    compute_encoder.set_bytes(slice_size, 3);
-    compute_encoder.set_bytes(src.shape(0), 4);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->set_input_array(src, 0);
+    compute_encoder->set_input_array(indices, 1);
+    compute_encoder->set_output_array(out, 2);
+    compute_encoder->set_bytes(slice_size, 3);
+    compute_encoder->set_bytes(src.shape(0), 4);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
 
     return;
   }
@@ -146,9 +146,9 @@ void Gather::eval_gpu(const std::vector<array>& inputs, array& out) {
     return kernel_source;
   });
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kernel_name, lib);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Launch 3D grid of threads
   // First two dimensions for the indices, the last one for the slice
@@ -183,32 +183,32 @@ void Gather::eval_gpu(const std::vector<array>& inputs, array& out) {
   }
 
   // Set all the buffers
-  compute_encoder.set_input_array(src, 0);
-  compute_encoder.set_output_array(out, 1);
+  compute_encoder->set_input_array(src, 0);
+  compute_encoder->set_output_array(out, 1);
 
   // Set source info
-  compute_encoder.set_vector_bytes(src.shape(), 2);
-  compute_encoder.set_vector_bytes(src.strides(), 3);
-  compute_encoder.set_bytes(ndim, 4);
-  compute_encoder.set_vector_bytes(slice_sizes_, 5);
-  compute_encoder.set_vector_bytes(axes_, 6);
+  compute_encoder->set_vector_bytes(src.shape(), 2);
+  compute_encoder->set_vector_bytes(src.strides(), 3);
+  compute_encoder->set_bytes(ndim, 4);
+  compute_encoder->set_vector_bytes(slice_sizes_, 5);
+  compute_encoder->set_vector_bytes(axes_, 6);
 
   // Set index info
   //
   // We don't need to check for empty idx_shapes because gather has a
   // idx_ndim == 0 specialization
-  compute_encoder.set_vector_bytes(idx_shapes, 7);
-  compute_encoder.set_vector_bytes(idx_strides, 8);
-  compute_encoder.set_vector_bytes(idx_contigs, 9);
-  compute_encoder.set_bytes(idx_ndim, 10);
+  compute_encoder->set_vector_bytes(idx_shapes, 7);
+  compute_encoder->set_vector_bytes(idx_strides, 8);
+  compute_encoder->set_vector_bytes(idx_contigs, 9);
+  compute_encoder->set_bytes(idx_ndim, 10);
 
   // Set index buffers
   for (int i = 0; i < nidx; ++i) {
-    compute_encoder.set_input_array(inputs[i + 1], 20 + i);
+    compute_encoder->set_input_array(inputs[i + 1], 20 + i);
   }
 
   // Launch grid
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
@@ -345,16 +345,16 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
     return kernel_source;
   });
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kernel_name, lib);
 
   size_t nthreads = upd.size();
 
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Set all the buffers
-  compute_encoder.set_input_array(upd, 1);
-  compute_encoder.set_output_array(out, 2);
+  compute_encoder->set_input_array(upd, 1);
+  compute_encoder->set_output_array(out, 2);
 
   // Set update info
   size_t upd_ndim = upd.ndim();
@@ -384,14 +384,14 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
     // Need placeholders so Metal doesn't complain
     int shape_ = 0;
     int64_t stride_ = 0;
-    compute_encoder.set_bytes(shape_, 3);
-    compute_encoder.set_bytes(stride_, 4);
+    compute_encoder->set_bytes(shape_, 3);
+    compute_encoder->set_bytes(stride_, 4);
   } else {
-    compute_encoder.set_vector_bytes(upd.shape(), 3);
-    compute_encoder.set_vector_bytes(upd.strides(), 4);
+    compute_encoder->set_vector_bytes(upd.shape(), 3);
+    compute_encoder->set_vector_bytes(upd.strides(), 4);
   }
-  compute_encoder.set_bytes(upd_ndim, 5);
-  compute_encoder.set_bytes(upd_size, 6);
+  compute_encoder->set_bytes(upd_ndim, 5);
+  compute_encoder->set_bytes(upd_size, 6);
 
   // Set output info
   size_t out_ndim = out.ndim();
@@ -399,14 +399,14 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
     // Need placeholders so Metal doesn't complain
     int shape_ = 0;
     int64_t stride_ = 0;
-    compute_encoder.set_bytes(shape_, 7);
-    compute_encoder.set_bytes(stride_, 8);
+    compute_encoder->set_bytes(shape_, 7);
+    compute_encoder->set_bytes(stride_, 8);
   } else {
-    compute_encoder.set_vector_bytes(out.shape(), 7);
-    compute_encoder.set_vector_bytes(out.strides(), 8);
+    compute_encoder->set_vector_bytes(out.shape(), 7);
+    compute_encoder->set_vector_bytes(out.strides(), 8);
   }
-  compute_encoder.set_bytes(out_ndim, 9);
-  compute_encoder.set_vector_bytes(axes_, 10);
+  compute_encoder->set_bytes(out_ndim, 9);
+  compute_encoder->set_vector_bytes(axes_, 10);
 
   // Set index info
   if (idx_ndim == 0) {
@@ -416,15 +416,15 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
     idx_strides.push_back(0);
     idx_contigs.push_back(false);
   }
-  compute_encoder.set_vector_bytes(idx_shapes, 11);
-  compute_encoder.set_vector_bytes(idx_strides, 12);
-  compute_encoder.set_vector_bytes(idx_contigs, 13);
-  compute_encoder.set_bytes(idx_ndim, 14);
-  compute_encoder.set_bytes(idx_size, 15);
+  compute_encoder->set_vector_bytes(idx_shapes, 11);
+  compute_encoder->set_vector_bytes(idx_strides, 12);
+  compute_encoder->set_vector_bytes(idx_contigs, 13);
+  compute_encoder->set_bytes(idx_ndim, 14);
+  compute_encoder->set_bytes(idx_size, 15);
 
   // Set index buffers
   for (int i = 0; i < nidx; ++i) {
-    compute_encoder.set_input_array(inputs[i + 1], 20 + i);
+    compute_encoder->set_input_array(inputs[i + 1], 20 + i);
   }
 
   // Launch grid
@@ -436,7 +436,7 @@ void Scatter::eval_gpu(const std::vector<array>& inputs, array& out) {
     throw std::runtime_error("[Scatter::eval_gpu] Invalid number of threads");
   }
   MTL::Size group_dims = get_block_dims(upd_size, grid_y, 1);
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void GatherAxis::eval_gpu(const std::vector<array>& inputs, array& out) {
@@ -484,9 +484,9 @@ void GatherAxis::eval_gpu(const std::vector<array>& inputs, array& out) {
     return kernel_source;
   });
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kernel_name, lib);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Grid [size post, index size, size pre]
   size_t size_pre = 1;
@@ -503,21 +503,21 @@ void GatherAxis::eval_gpu(const std::vector<array>& inputs, array& out) {
   MTL::Size grid_dims = MTL::Size(size_post, idx_ax_size, size_pre);
 
   // Set all the buffers
-  compute_encoder.set_input_array(src, 0);
-  compute_encoder.set_input_array(idx, 1);
-  compute_encoder.set_output_array(out, 2);
+  compute_encoder->set_input_array(src, 0);
+  compute_encoder->set_input_array(idx, 1);
+  compute_encoder->set_output_array(out, 2);
 
   // Set source info
-  compute_encoder.set_vector_bytes(remove_index(idx.shape(), axis_), 3);
-  compute_encoder.set_vector_bytes(remove_index(src.strides(), axis_), 4);
-  compute_encoder.set_vector_bytes(remove_index(idx.strides(), axis_), 5);
-  compute_encoder.set_bytes(ndim - 1, 6);
-  compute_encoder.set_bytes(axis_, 7);
-  compute_encoder.set_bytes(src.shape(axis_), 8);
-  compute_encoder.set_bytes(src.strides(axis_), 9);
-  compute_encoder.set_bytes(idx.strides(axis_), 10);
+  compute_encoder->set_vector_bytes(remove_index(idx.shape(), axis_), 3);
+  compute_encoder->set_vector_bytes(remove_index(src.strides(), axis_), 4);
+  compute_encoder->set_vector_bytes(remove_index(idx.strides(), axis_), 5);
+  compute_encoder->set_bytes(ndim - 1, 6);
+  compute_encoder->set_bytes(axis_, 7);
+  compute_encoder->set_bytes(src.shape(axis_), 8);
+  compute_encoder->set_bytes(src.strides(axis_), 9);
+  compute_encoder->set_bytes(idx.strides(axis_), 10);
 
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void ScatterAxis::eval_gpu(const std::vector<array>& inputs, array& out) {
@@ -600,9 +600,9 @@ void ScatterAxis::eval_gpu(const std::vector<array>& inputs, array& out) {
     return kernel_source;
   });
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kernel_name, lib);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Grid [size post, index size, size pre]
   size_t size_pre = 1;
@@ -619,29 +619,29 @@ void ScatterAxis::eval_gpu(const std::vector<array>& inputs, array& out) {
   MTL::Size grid_dims = MTL::Size(size_post, idx_ax_size, size_pre);
 
   // Set all the buffers
-  compute_encoder.set_input_array(upd, 0);
-  compute_encoder.set_input_array(idx, 1);
-  compute_encoder.set_output_array(out, 2);
+  compute_encoder->set_input_array(upd, 0);
+  compute_encoder->set_input_array(idx, 1);
+  compute_encoder->set_output_array(out, 2);
 
   // Set source info
   if (ndim > 1) {
-    compute_encoder.set_vector_bytes(remove_index(idx.shape(), axis_), 3);
-    compute_encoder.set_vector_bytes(remove_index(upd.strides(), axis_), 4);
-    compute_encoder.set_vector_bytes(remove_index(idx.strides(), axis_), 5);
+    compute_encoder->set_vector_bytes(remove_index(idx.shape(), axis_), 3);
+    compute_encoder->set_vector_bytes(remove_index(upd.strides(), axis_), 4);
+    compute_encoder->set_vector_bytes(remove_index(idx.strides(), axis_), 5);
   } else {
     // The following will be ignored in the kernel but we still have to set
     // some value so that metal validation passes.
-    compute_encoder.set_vector_bytes(idx.shape(), 3);
-    compute_encoder.set_vector_bytes(upd.strides(), 4);
-    compute_encoder.set_vector_bytes(idx.strides(), 5);
+    compute_encoder->set_vector_bytes(idx.shape(), 3);
+    compute_encoder->set_vector_bytes(upd.strides(), 4);
+    compute_encoder->set_vector_bytes(idx.strides(), 5);
   }
-  compute_encoder.set_bytes(ndim - 1, 6);
-  compute_encoder.set_bytes(axis_, 7);
-  compute_encoder.set_bytes(out.shape(axis_), 8);
-  compute_encoder.set_bytes(upd.strides(axis_), 9);
-  compute_encoder.set_bytes(idx.strides(axis_), 10);
+  compute_encoder->set_bytes(ndim - 1, 6);
+  compute_encoder->set_bytes(axis_, 7);
+  compute_encoder->set_bytes(out.shape(axis_), 8);
+  compute_encoder->set_bytes(upd.strides(axis_), 9);
+  compute_encoder->set_bytes(idx.strides(axis_), 10);
 
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void MaskedScatter::eval_gpu(const std::vector<array>& inputs, array& out) {
@@ -706,22 +706,22 @@ void MaskedScatter::eval_gpu(const std::vector<array>& inputs, array& out) {
   // Binding
   int bind_idx = 0;
   const int ndim = static_cast<int>(src.ndim());
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
-  compute_encoder.set_input_array(mask_flat, bind_idx++);
-  compute_encoder.set_input_array(scatter_offsets, bind_idx++);
-  compute_encoder.set_input_array(src, bind_idx++);
-  compute_encoder.set_output_array(out, bind_idx++);
-  compute_encoder.set_vector_bytes(src.shape(), bind_idx++);
-  compute_encoder.set_vector_bytes(src.strides(), bind_idx++);
-  compute_encoder.set_bytes(ndim, bind_idx++);
-  compute_encoder.set_bytes(src.size() / src.shape(0), bind_idx++);
-  compute_encoder.set_bytes(mask_flat.size() / mask.shape(0), bind_idx++);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
+  compute_encoder->set_input_array(mask_flat, bind_idx++);
+  compute_encoder->set_input_array(scatter_offsets, bind_idx++);
+  compute_encoder->set_input_array(src, bind_idx++);
+  compute_encoder->set_output_array(out, bind_idx++);
+  compute_encoder->set_vector_bytes(src.shape(), bind_idx++);
+  compute_encoder->set_vector_bytes(src.strides(), bind_idx++);
+  compute_encoder->set_bytes(ndim, bind_idx++);
+  compute_encoder->set_bytes(src.size() / src.shape(0), bind_idx++);
+  compute_encoder->set_bytes(mask_flat.size() / mask.shape(0), bind_idx++);
 
   // Dispatch
   auto group_dims = get_block_dims(total, 1, 1);
   MTL::Size grid_dims(total, 1, 1);
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 } // namespace mlx::core

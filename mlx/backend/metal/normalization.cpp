@@ -60,7 +60,7 @@ void RMSNorm::eval_gpu(
     op_name += "_looped";
   }
   op_name += type_to_name(out);
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   {
     auto kernel = d.get_kernel(op_name);
 
@@ -81,15 +81,15 @@ void RMSNorm::eval_gpu(
     }
 
     uint32_t w_stride = (w.ndim() == 1) ? w.strides()[0] : 0;
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(
         x.data_shared_ptr() == nullptr ? out : x, 0);
-    compute_encoder.set_input_array(w, 1);
-    compute_encoder.set_output_array(out, 2);
-    compute_encoder.set_bytes(eps_, 3);
-    compute_encoder.set_bytes(axis_size, 4);
-    compute_encoder.set_bytes(w_stride, 5);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->set_input_array(w, 1);
+    compute_encoder->set_output_array(out, 2);
+    compute_encoder->set_bytes(eps_, 3);
+    compute_encoder->set_bytes(axis_size, 4);
+    compute_encoder->set_bytes(w_stride, 5);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 
@@ -165,7 +165,7 @@ void RMSNormVJP::eval_gpu(
       {&has_w, MTL::DataType::DataTypeBool, 20},
   };
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   {
     auto kernel = d.get_kernel(op_name, hash_name, func_consts);
 
@@ -186,23 +186,23 @@ void RMSNormVJP::eval_gpu(
     }
 
     uint32_t w_stride = (w.ndim() == 1) ? w.strides()[0] : 0;
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(x, 0);
-    compute_encoder.set_input_array(w, 1);
-    compute_encoder.set_input_array(g, 2);
-    compute_encoder.set_output_array(gx, 3);
-    compute_encoder.set_output_array(gw_temp, 4);
-    compute_encoder.set_bytes(eps_, 5);
-    compute_encoder.set_bytes(axis_size, 6);
-    compute_encoder.set_bytes(w_stride, 7);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(x, 0);
+    compute_encoder->set_input_array(w, 1);
+    compute_encoder->set_input_array(g, 2);
+    compute_encoder->set_output_array(gx, 3);
+    compute_encoder->set_output_array(gw_temp, 4);
+    compute_encoder->set_bytes(eps_, 5);
+    compute_encoder->set_bytes(axis_size, 6);
+    compute_encoder->set_bytes(w_stride, 7);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 
   if (has_w) {
     ReductionPlan plan(
         ReductionOpType::ContiguousStridedReduce, {n_rows}, {axis_size});
     strided_reduce_general_dispatch(
-        gw_temp, gw, "sum", plan, {0}, compute_encoder, d, s);
+        gw_temp, gw, "sum", plan, {0}, *compute_encoder, d, s);
   }
 }
 
@@ -258,7 +258,7 @@ void LayerNorm::eval_gpu(
     n_reads = 4;
   }
   op_name += type_to_name(out);
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   {
     auto kernel = d.get_kernel(op_name);
 
@@ -286,17 +286,17 @@ void LayerNorm::eval_gpu(
 
     uint32_t w_stride = (w.ndim() == 1) ? w.strides()[0] : 0;
     uint32_t b_stride = (b.ndim() == 1) ? b.strides()[0] : 0;
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(
         x.data_shared_ptr() == nullptr ? out : x, 0);
-    compute_encoder.set_input_array(w, 1);
-    compute_encoder.set_input_array(b, 2);
-    compute_encoder.set_output_array(out, 3);
-    compute_encoder.set_bytes(eps_, 4);
-    compute_encoder.set_bytes(axis_size, 5);
-    compute_encoder.set_bytes(w_stride, 6);
-    compute_encoder.set_bytes(b_stride, 7);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->set_input_array(w, 1);
+    compute_encoder->set_input_array(b, 2);
+    compute_encoder->set_output_array(out, 3);
+    compute_encoder->set_bytes(eps_, 4);
+    compute_encoder->set_bytes(axis_size, 5);
+    compute_encoder->set_bytes(w_stride, 6);
+    compute_encoder->set_bytes(b_stride, 7);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 
@@ -363,12 +363,12 @@ void LayerNormVJP::eval_gpu(
   gb.set_data(allocator::malloc(gb.nbytes()));
 
   // Finish with the gradient for b in case we had a b
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   if (gb.ndim() == 1 && gb.size() == axis_size) {
     ReductionPlan plan(
         ReductionOpType::ContiguousStridedReduce, {n_rows}, {axis_size});
     strided_reduce_general_dispatch(
-        g, gb, "sum", plan, {0}, compute_encoder, d, s);
+        g, gb, "sum", plan, {0}, *compute_encoder, d, s);
   }
 
   int simd_size = 32;
@@ -412,23 +412,23 @@ void LayerNormVJP::eval_gpu(
     }
 
     uint32_t w_stride = (w.ndim() == 1) ? w.strides()[0] : 0;
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(x, 0);
-    compute_encoder.set_input_array(w, 1);
-    compute_encoder.set_input_array(g, 2);
-    compute_encoder.set_output_array(gx, 3);
-    compute_encoder.set_output_array(gw_temp, 4);
-    compute_encoder.set_bytes(eps_, 5);
-    compute_encoder.set_bytes(axis_size, 6);
-    compute_encoder.set_bytes(w_stride, 7);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(x, 0);
+    compute_encoder->set_input_array(w, 1);
+    compute_encoder->set_input_array(g, 2);
+    compute_encoder->set_output_array(gx, 3);
+    compute_encoder->set_output_array(gw_temp, 4);
+    compute_encoder->set_bytes(eps_, 5);
+    compute_encoder->set_bytes(axis_size, 6);
+    compute_encoder->set_bytes(w_stride, 7);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 
   if (has_w) {
     ReductionPlan plan(
         ReductionOpType::ContiguousStridedReduce, {n_rows}, {axis_size});
     strided_reduce_general_dispatch(
-        gw_temp, gw, "sum", plan, {0}, compute_encoder, d, s);
+        gw_temp, gw, "sum", plan, {0}, *compute_encoder, d, s);
   }
 }
 

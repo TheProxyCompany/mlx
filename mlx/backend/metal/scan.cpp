@@ -60,12 +60,12 @@ void scan_gpu_inplace(
       get_scan_kernel(d, kname, reverse, inclusive, reduce_type_str, in, out);
 
   if (contiguous) {
-    auto& compute_encoder = d.get_command_encoder(s.index);
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(in, 0);
-    compute_encoder.set_output_array(out, 1);
+    auto compute_encoder = d.get_command_encoder(s.index);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(in, 0);
+    compute_encoder->set_output_array(out, 1);
     size_t size = in.shape(axis);
-    compute_encoder.set_bytes(size, 2);
+    compute_encoder->set_bytes(size, 2);
 
     // Compute the thread grid
     int n_reads = (in.itemsize() <= 4) ? 4 : 2;
@@ -87,20 +87,20 @@ void scan_gpu_inplace(
     MTL::Size grid_dims(
         thread_group_size, tmp_grid_dims.width, tmp_grid_dims.height);
     MTL::Size group_dims(thread_group_size, 1, 1);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   } else {
-    auto& compute_encoder = d.get_command_encoder(s.index);
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(
+    auto compute_encoder = d.get_command_encoder(s.index);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(
         in.data_shared_ptr() == nullptr ? out : in, 0);
-    compute_encoder.set_output_array(out, 1);
+    compute_encoder->set_output_array(out, 1);
     size_t size = in.shape(axis);
     size_t stride = in.strides()[axis];
     int bn = 32;
     size_t stride_blocks = (stride + bn - 1) / bn;
-    compute_encoder.set_bytes(size, 2);
-    compute_encoder.set_bytes(stride, 3);
-    compute_encoder.set_bytes(stride_blocks, 4);
+    compute_encoder->set_bytes(size, 2);
+    compute_encoder->set_bytes(stride, 3);
+    compute_encoder->set_bytes(stride_blocks, 4);
 
     // Compute the thread grid
     int n_reads = (in.itemsize() <= 4) ? 4 : 2;
@@ -116,7 +116,7 @@ void scan_gpu_inplace(
     MTL::Size grid_dims(
         thread_group_size, tmp_grid_dims.width, tmp_grid_dims.height);
     MTL::Size group_dims(thread_group_size, 1, 1);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 

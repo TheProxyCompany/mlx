@@ -135,6 +135,11 @@ struct DeviceStream {
   // Used to allow thread-safe access to the outputs map
   std::mutex fence_mtx;
 
+  // Protects encoder lifecycle: buffer, encoder, fence, temporaries, buffer_ops, buffer_sizes.
+  // Held by ScopedEncoder during encoding operations.
+  // Recursive to allow add_temporary calls while holding ScopedEncoder.
+  std::recursive_mutex encoder_mtx;
+
   // Data updated between command buffers
   MTL::CommandBuffer* buffer{nullptr};
   int buffer_ops{0};
@@ -145,6 +150,24 @@ struct DeviceStream {
   std::unique_ptr<CommandEncoder> encoder{nullptr};
   std::shared_ptr<Fence> fence;
   std::vector<array> temporaries;
+};
+
+// RAII guard that holds encoder_mtx while the encoder is in use.
+// Prevents end_encoding from destroying the encoder while a primitive uses it.
+class ScopedEncoder {
+ public:
+  ScopedEncoder(DeviceStream& stream, MTL::Device* mtl_device);
+  ScopedEncoder(const ScopedEncoder&) = delete;
+  ScopedEncoder& operator=(const ScopedEncoder&) = delete;
+  ScopedEncoder(ScopedEncoder&& other) noexcept
+      : stream_(other.stream_), lock_(std::move(other.lock_)) {}
+
+  CommandEncoder& operator*() { return *stream_.encoder; }
+  CommandEncoder* operator->() { return stream_.encoder.get(); }
+
+ private:
+  DeviceStream& stream_;
+  std::unique_lock<std::recursive_mutex> lock_;
 };
 
 class Device {
@@ -173,7 +196,7 @@ class Device {
   MTL::CommandBuffer* get_command_buffer(int index);
   bool command_buffer_needs_commit(int index);
   void commit_command_buffer(int index);
-  CommandEncoder& get_command_encoder(int index);
+  ScopedEncoder get_command_encoder(int index);
   void end_encoding(int index);
 
   MTL::Library* get_library(

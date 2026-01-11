@@ -57,25 +57,25 @@ void unary_op_gpu_inplace(
   auto kernel = get_unary_kernel(d, kernel_name, in.dtype(), out.dtype(), op);
 
   auto thread_group_size = kernel->maxTotalThreadsPerThreadgroup();
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_output_array(out, 1);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_output_array(out, 1);
   if (!contig) {
     // Launch up to 3D grid of threads
     size_t dim0 = ndim > 0 ? shape[ndim - 1] : 1;
     size_t dim1 = ndim > 1 ? shape[ndim - 2] : 1;
     size_t rest = out.size() / (dim0 * dim1);
-    compute_encoder.set_vector_bytes(shape, 2);
-    compute_encoder.set_vector_bytes(strides, 3);
-    compute_encoder.set_bytes(ndim, 4);
+    compute_encoder->set_vector_bytes(shape, 2);
+    compute_encoder->set_vector_bytes(strides, 3);
+    compute_encoder->set_bytes(ndim, 4);
     if (thread_group_size != 1024) {
       throw std::runtime_error("[Metal::unary] Must use 1024 sized block");
     }
     dim0 = (dim0 + work_per_thread - 1) / work_per_thread;
     auto group_dims = get_block_dims(dim0, dim1, rest);
     MTL::Size grid_dims = MTL::Size(dim0, dim1, rest);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   } else {
     size_t nthreads = ceildiv(in.data_size(), work_per_thread);
     if (thread_group_size > nthreads) {
@@ -85,13 +85,13 @@ void unary_op_gpu_inplace(
     MTL::Size group_dims = MTL::Size(thread_group_size, 1, 1);
     MTL::Size grid_dims;
     if (large) {
-      compute_encoder.set_bytes<int64_t>(in.data_size(), 2);
+      compute_encoder->set_bytes<int64_t>(in.data_size(), 2);
       grid_dims = get_2d_grid_dims(out.shape(), out.strides(), work_per_thread);
     } else {
-      compute_encoder.set_bytes<int>(in.data_size(), 2);
+      compute_encoder->set_bytes<int>(in.data_size(), 2);
       grid_dims = MTL::Size(nthreads, 1, 1);
     }
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 

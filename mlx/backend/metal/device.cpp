@@ -244,6 +244,22 @@ CommandEncoder::~CommandEncoder() {
   enc_->release();
 }
 
+ScopedEncoder::ScopedEncoder(DeviceStream& stream, MTL::Device* mtl_device)
+    : stream_(stream), lock_(stream.encoder_mtx) {
+  if (stream_.encoder == nullptr) {
+    if (stream_.buffer == nullptr) {
+      stream_.buffer = stream_.queue->commandBufferWithUnretainedReferences();
+      if (!stream_.buffer) {
+        throw std::runtime_error(
+            "[metal::Device] Unable to create new command buffer");
+      }
+      stream_.buffer->retain();
+    }
+    stream_.encoder = std::make_unique<CommandEncoder>(stream_);
+    stream_.fence = std::make_shared<Fence>(mtl_device->newFence());
+  }
+}
+
 void CommandEncoder::set_buffer(
     const MTL::Buffer* buf,
     int idx,
@@ -433,6 +449,7 @@ void Device::commit_command_buffer(int index) {
 
 void Device::add_temporary(array arr, int index) {
   auto* stream = get_stream_ptr(index);
+  std::lock_guard<std::recursive_mutex> lock(stream->encoder_mtx);
   stream->temporaries.push_back(std::move(arr));
 }
 
@@ -441,6 +458,7 @@ void Device::add_temporaries(std::vector<array> arrays, int index) {
     return;
   }
   auto* stream = get_stream_ptr(index);
+  std::lock_guard<std::recursive_mutex> lock(stream->encoder_mtx);
   stream->temporaries.insert(
       stream->temporaries.end(),
       std::make_move_iterator(arrays.begin()),
@@ -449,6 +467,7 @@ void Device::add_temporaries(std::vector<array> arrays, int index) {
 
 void Device::end_encoding(int index) {
   auto* stream = get_stream_ptr(index);
+  std::lock_guard<std::recursive_mutex> enc_lock(stream->encoder_mtx);
   if (stream->encoder != nullptr) {
     // Each command encoder has a unique fence. We also store a map of
     // all previous outputs of command encoders to their corresponding fence.
@@ -509,15 +528,9 @@ void Device::end_encoding(int index) {
   stream->encoder = nullptr;
 }
 
-CommandEncoder& Device::get_command_encoder(int index) {
+ScopedEncoder Device::get_command_encoder(int index) {
   auto* stream = get_stream_ptr(index);
-  if (stream->encoder == nullptr) {
-    // Ensure there is an active command buffer
-    ensure_command_buffer(*stream);
-    stream->encoder = std::make_unique<CommandEncoder>(*stream);
-    stream->fence = std::make_shared<Fence>(device_->newFence());
-  }
-  return *stream->encoder;
+  return ScopedEncoder(*stream, device_);
 }
 
 MTL::Library* Device::get_library(

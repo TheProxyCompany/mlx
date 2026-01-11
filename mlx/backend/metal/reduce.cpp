@@ -986,7 +986,7 @@ void Reduce::eval_gpu(const std::vector<array>& inputs, array& out) {
   // Initialize output
   auto& s = stream();
   auto& d = metal::device(s.device);
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
 
   // Reduce
   if (in.size() > 0) {
@@ -1008,7 +1008,7 @@ void Reduce::eval_gpu(const std::vector<array>& inputs, array& out) {
     // Reducing over everything and the data is all there no broadcasting or
     // slicing etc.
     if (plan.type == ContiguousAllReduce) {
-      all_reduce_dispatch(in, out, op_name, compute_encoder, d, s);
+      all_reduce_dispatch(in, out, op_name, *compute_encoder, d, s);
     }
 
     // At least the last dimension is row contiguous and we are reducing over
@@ -1016,7 +1016,7 @@ void Reduce::eval_gpu(const std::vector<array>& inputs, array& out) {
     else if (
         plan.type == ContiguousReduce || plan.type == GeneralContiguousReduce) {
       row_reduce_general_dispatch(
-          in, out, op_name, plan, axes_, compute_encoder, d, s);
+          in, out, op_name, plan, axes_, *compute_encoder, d, s);
     }
 
     // At least the last two dimensions are contiguous and we are doing a
@@ -1025,13 +1025,13 @@ void Reduce::eval_gpu(const std::vector<array>& inputs, array& out) {
         plan.type == ContiguousStridedReduce ||
         plan.type == GeneralStridedReduce) {
       strided_reduce_general_dispatch(
-          in, out, op_name, plan, axes_, compute_encoder, d, s);
+          in, out, op_name, plan, axes_, *compute_encoder, d, s);
     }
   }
 
   // Nothing to reduce just initialize the output
   else {
-    init_reduce(out, op_name, compute_encoder, d, s);
+    init_reduce(out, op_name, *compute_encoder, d, s);
   }
 }
 

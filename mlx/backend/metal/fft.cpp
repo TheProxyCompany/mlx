@@ -654,7 +654,7 @@ void fft_op(
     // We can perform 2 RFFTs at once so the batch size is halved.
     batch_size = (batch_size + 2 - 1) / 2;
   }
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto in_type_str = in.dtype() == float32 ? "float" : "float2";
   auto out_type_str = out.dtype() == float32 ? "float" : "float2";
   // Only required by four step
@@ -703,9 +703,9 @@ void fft_op(
     auto kernel =
         get_fft_kernel(d, base_name, hash_name, func_consts, template_def);
 
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(in_contiguous, 0);
-    compute_encoder.set_output_array(out, 1);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(in_contiguous, 0);
+    compute_encoder->set_output_array(out, 1);
 
     if (plan.bluestein_n > 0) {
       // Precomputed twiddle factors for Bluestein's
@@ -713,36 +713,36 @@ void fft_op(
       copies.push_back(w_q);
       copies.push_back(w_k);
 
-      compute_encoder.set_input_array(w_q, 2); // w_q
-      compute_encoder.set_input_array(w_k, 3); // w_k
-      compute_encoder.set_bytes(n, 4);
-      compute_encoder.set_bytes(plan.bluestein_n, 5);
-      compute_encoder.set_bytes(total_batch_size, 6);
+      compute_encoder->set_input_array(w_q, 2); // w_q
+      compute_encoder->set_input_array(w_k, 3); // w_k
+      compute_encoder->set_bytes(n, 4);
+      compute_encoder->set_bytes(plan.bluestein_n, 5);
+      compute_encoder->set_bytes(total_batch_size, 6);
     } else if (plan.rader_n > 1) {
       auto [b_q, g_q, g_minus_q] = compute_raders_constants(plan.rader_n, s);
       copies.push_back(b_q);
       copies.push_back(g_q);
       copies.push_back(g_minus_q);
 
-      compute_encoder.set_input_array(b_q, 2);
-      compute_encoder.set_input_array(g_q, 3);
-      compute_encoder.set_input_array(g_minus_q, 4);
-      compute_encoder.set_bytes(n, 5);
-      compute_encoder.set_bytes(total_batch_size, 6);
-      compute_encoder.set_bytes(plan.rader_n, 7);
+      compute_encoder->set_input_array(b_q, 2);
+      compute_encoder->set_input_array(g_q, 3);
+      compute_encoder->set_input_array(g_minus_q, 4);
+      compute_encoder->set_bytes(n, 5);
+      compute_encoder->set_bytes(total_batch_size, 6);
+      compute_encoder->set_bytes(plan.rader_n, 7);
     } else if (four_step_params.required) {
-      compute_encoder.set_bytes(four_step_params.n1, 2);
-      compute_encoder.set_bytes(four_step_params.n2, 3);
-      compute_encoder.set_bytes(total_batch_size, 4);
+      compute_encoder->set_bytes(four_step_params.n1, 2);
+      compute_encoder->set_bytes(four_step_params.n2, 3);
+      compute_encoder->set_bytes(total_batch_size, 4);
     } else {
-      compute_encoder.set_bytes(n, 2);
-      compute_encoder.set_bytes(total_batch_size, 3);
+      compute_encoder->set_bytes(n, 2);
+      compute_encoder->set_bytes(total_batch_size, 3);
     }
 
     auto group_dims = MTL::Size(1, threadgroup_batch_size, threads_per_fft);
     auto grid_dims =
         MTL::Size(batch_size, threadgroup_batch_size, threads_per_fft);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 
   d.add_temporaries(std::move(copies), s.index);

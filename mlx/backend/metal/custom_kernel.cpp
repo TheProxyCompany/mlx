@@ -378,32 +378,32 @@ void CustomKernel::eval_gpu(
 
   auto lib = d.get_library(name_, [this] { return metal::utils() + source_; });
   auto kernel = d.get_kernel(name_, lib);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
   int index = 0;
   for (int i = 0; i < checked_inputs.size(); i++) {
     const array& in = checked_inputs[i];
     auto& shape_info = shape_infos_[i];
-    compute_encoder.set_input_array(in, index);
+    compute_encoder->set_input_array(in, index);
     index++;
     if (in.ndim() > 0) {
       int ndim = in.ndim();
       if (std::get<0>(shape_info)) {
-        compute_encoder.set_vector_bytes(in.shape(), ndim, index);
+        compute_encoder->set_vector_bytes(in.shape(), ndim, index);
         index++;
       }
       if (std::get<1>(shape_info)) {
-        compute_encoder.set_vector_bytes(in.strides(), ndim, index);
+        compute_encoder->set_vector_bytes(in.strides(), ndim, index);
         index++;
       }
       if (std::get<2>(shape_info)) {
-        compute_encoder.set_bytes(ndim, index);
+        compute_encoder->set_bytes(ndim, index);
         index++;
       }
     }
   }
   for (auto& out : outputs) {
-    compute_encoder.set_output_array(out, index);
+    compute_encoder->set_output_array(out, index);
     index++;
   }
 
@@ -422,7 +422,7 @@ void CustomKernel::eval_gpu(
   MTL::Size group_dims =
       MTL::Size(std::min(tx, gx), std::min(ty, gy), std::min(tz, gz));
   MTL::Size grid_dims = MTL::Size(gx, gy, gz);
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 
   d.add_temporaries(std::move(copies), s.index);
 }

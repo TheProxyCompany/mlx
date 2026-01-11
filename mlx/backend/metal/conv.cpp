@@ -41,14 +41,14 @@ void explicit_gemm_conv_ND_gpu(
   std::string kname;
   kname.reserve(32);
   concatenate(kname, "naive_unfold_nd_", type_to_name(in_unfolded), "_", N);
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kname);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_output_array(in_unfolded, 1);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_output_array(in_unfolded, 1);
 
-  compute_encoder.set_bytes(conv_params, 2);
+  compute_encoder->set_bytes(conv_params, 2);
 
   // Launch unfolding kernel
   size_t tgp_x = std::min(conv_params.C, 64);
@@ -60,7 +60,7 @@ void explicit_gemm_conv_ND_gpu(
   MTL::Size group_dims = MTL::Size(
       std::min(tgp_x, grid_dims.width), std::min(tgp_y, grid_dims.height), 1);
 
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 
   // Reshape weight
   Shape wt_reshape{implicit_K, implicit_N};
@@ -121,14 +121,14 @@ void explicit_gemm_conv_group_ND_gpu(
   kname.reserve(32);
   concatenate(
       kname, "naive_unfold_transpose_nd_", type_to_name(in_unfolded), "_", N);
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(kname);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_output_array(in_unfolded, 1);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_output_array(in_unfolded, 1);
 
-  compute_encoder.set_bytes(conv_params, 2);
+  compute_encoder->set_bytes(conv_params, 2);
 
   // Launch unfolding kernel
   size_t tgp_x = std::min(conv_params.C, 64);
@@ -140,7 +140,7 @@ void explicit_gemm_conv_group_ND_gpu(
   MTL::Size group_dims = MTL::Size(
       std::min(tgp_x, grid_dims.width), std::min(tgp_y, grid_dims.height), 1);
 
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 
   // Transpose kernel weights so that we can slice them by contiguous chunks
   // of channel groups.
@@ -275,7 +275,7 @@ void implicit_gemm_conv_2D_gpu(
       small_filter ? 's' : 'l');
 
   // Encode and dispatch kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_conv_kernel(
       d,
       kname,
@@ -287,7 +287,7 @@ void implicit_gemm_conv_2D_gpu(
       wn,
       n_channel_specialization,
       small_filter);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Deduce grid launch dimensions
   int tile = 1 << swizzle_log;
@@ -298,16 +298,16 @@ void implicit_gemm_conv_2D_gpu(
   MTL::Size grid_dims = MTL::Size(grid_dim_x, grid_dim_y, groups);
 
   // Encode arrays
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_input_array(wt, 1);
-  compute_encoder.set_output_array(out, 2);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_input_array(wt, 1);
+  compute_encoder->set_output_array(out, 2);
 
   // Encode params
-  compute_encoder.set_bytes(conv_params, 3);
-  compute_encoder.set_bytes(gemm_params, 4);
+  compute_encoder->set_bytes(conv_params, 3);
+  compute_encoder->set_bytes(gemm_params, 4);
 
   // Launch kernel
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void implicit_gemm_conv_2D_general_gpu(
@@ -458,10 +458,10 @@ void implicit_gemm_conv_2D_general_gpu(
   };
 
   // Encode and dispatch kernel
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = get_steel_conv_general_kernel(
       d, kname, hash_name, func_consts, out, bm, bn, bk, wm, wn);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   // Deduce grid launch dimensions
   int tile = 1 << swizzle_log;
@@ -473,20 +473,20 @@ void implicit_gemm_conv_2D_general_gpu(
   MTL::Size grid_dims = MTL::Size(grid_dim_x, grid_dim_y, grid_dim_z);
 
   // Encode arrays
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_input_array(wt, 1);
-  compute_encoder.set_output_array(out, 2);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_input_array(wt, 1);
+  compute_encoder->set_output_array(out, 2);
 
   // Encode params
-  compute_encoder.set_bytes(conv_params, 3);
-  compute_encoder.set_bytes(gemm_params, 4);
-  compute_encoder.set_bytes(jump_params, 5);
+  compute_encoder->set_bytes(conv_params, 3);
+  compute_encoder->set_bytes(gemm_params, 4);
+  compute_encoder->set_bytes(jump_params, 5);
 
-  compute_encoder.set_vector_bytes(base_h, 6);
-  compute_encoder.set_vector_bytes(base_w, 7);
+  compute_encoder->set_vector_bytes(base_h, 6);
+  compute_encoder->set_vector_bytes(base_w, 7);
 
   // Launch kernel
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void winograd_conv_2D_gpu(
@@ -582,20 +582,20 @@ void winograd_conv_2D_gpu(
         type_to_name(out),
         "_bc",
         bc);
-    auto& compute_encoder = d.get_command_encoder(s.index);
+    auto compute_encoder = d.get_command_encoder(s.index);
     auto kernel = d.get_kernel(kname);
-    compute_encoder.set_compute_pipeline_state(kernel);
+    compute_encoder->set_compute_pipeline_state(kernel);
 
-    compute_encoder.set_input_array(wt, 0);
-    compute_encoder.set_output_array(filt_wg, 1);
+    compute_encoder->set_input_array(wt, 0);
+    compute_encoder->set_output_array(filt_wg, 1);
 
-    compute_encoder.set_bytes(C_c, 2);
-    compute_encoder.set_bytes(O_c, 3);
+    compute_encoder->set_bytes(C_c, 2);
+    compute_encoder->set_bytes(O_c, 3);
 
     MTL::Size group_dims = MTL::Size(32, bo, 1);
     MTL::Size grid_dims = MTL::Size(O_c / bo, 1, 1);
 
-    compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+    compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
   }
 
   // Do input transform
@@ -615,19 +615,19 @@ void winograd_conv_2D_gpu(
         type_to_name(out),
         "_bc",
         bc);
-    auto& compute_encoder = d.get_command_encoder(s.index);
+    auto compute_encoder = d.get_command_encoder(s.index);
     auto kernel = d.get_kernel(kname);
-    compute_encoder.set_compute_pipeline_state(kernel);
+    compute_encoder->set_compute_pipeline_state(kernel);
 
-    compute_encoder.set_input_array(in_padded, 0);
-    compute_encoder.set_output_array(inp_wg, 1);
+    compute_encoder->set_input_array(in_padded, 0);
+    compute_encoder->set_output_array(inp_wg, 1);
 
-    compute_encoder.set_bytes(conv_params_updated, 2);
+    compute_encoder->set_bytes(conv_params_updated, 2);
 
     MTL::Size group_dims = MTL::Size(32, wn, wm);
     MTL::Size grid_dims = MTL::Size(N_tiles_w, N_tiles_h, N_tiles_n);
 
-    compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+    compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
   }
 
   // Do batched gemm
@@ -667,19 +667,19 @@ void winograd_conv_2D_gpu(
         type_to_name(out),
         "_bo",
         bc);
-    auto& compute_encoder = d.get_command_encoder(s.index);
+    auto compute_encoder = d.get_command_encoder(s.index);
     auto kernel = d.get_kernel(kname);
-    compute_encoder.set_compute_pipeline_state(kernel);
+    compute_encoder->set_compute_pipeline_state(kernel);
 
-    compute_encoder.set_input_array(out_wg, 0);
-    compute_encoder.set_output_array(out, 1);
+    compute_encoder->set_input_array(out_wg, 0);
+    compute_encoder->set_output_array(out, 1);
 
-    compute_encoder.set_bytes(conv_params_updated, 2);
+    compute_encoder->set_bytes(conv_params_updated, 2);
 
     MTL::Size group_dims = MTL::Size(32, wn, wm);
     MTL::Size grid_dims = MTL::Size(N_tiles_w, N_tiles_h, N_tiles_n);
 
-    compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+    compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
   }
 }
 
@@ -728,21 +728,21 @@ void depthwise_conv_2D_gpu(
   "_tgp_w_", tw,
   "_do_flip_", do_flip ? 't' : 'n'); // clang-format on
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(base_name, hash_name, func_consts);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_input_array(wt, 1);
-  compute_encoder.set_output_array(out, 2);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_input_array(wt, 1);
+  compute_encoder->set_output_array(out, 2);
 
-  compute_encoder.set_bytes(conv_params, 3);
+  compute_encoder->set_bytes(conv_params, 3);
 
   MTL::Size group_dims = MTL::Size(tc, tw, th);
   MTL::Size grid_dims = MTL::Size(
       conv_params.C / tc, conv_params.oS[1] / tw, (conv_params.oS[0] / th) * N);
 
-  compute_encoder.dispatch_threadgroups(grid_dims, group_dims);
+  compute_encoder->dispatch_threadgroups(grid_dims, group_dims);
 }
 
 void dispatch_conv_2D_gpu(
@@ -826,35 +826,35 @@ void depthwise_conv_1D_gpu(
     wt = contiguous_copy_gpu(wt, s);
     d.add_temporary(wt, s.index);
   }
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel(base_name);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
   auto B = in.shape(0);
   auto Tout = out.shape(1);
   auto D = in.shape(2);
   auto K = wt.shape(1);
 
-  compute_encoder.set_input_array(in, 0);
-  compute_encoder.set_input_array(wt, 1);
-  compute_encoder.set_output_array(out, 2);
+  compute_encoder->set_input_array(in, 0);
+  compute_encoder->set_input_array(wt, 1);
+  compute_encoder->set_output_array(out, 2);
   if (large) {
     int64_t strides[3] = {in.strides(0), in.strides(1), in.strides(2)};
-    compute_encoder.set_bytes(strides, 3, 3);
+    compute_encoder->set_bytes(strides, 3, 3);
 
   } else {
     int strides[3] = {
         static_cast<int>(in.strides(0)),
         static_cast<int>(in.strides(1)),
         static_cast<int>(in.strides(2))};
-    compute_encoder.set_bytes(strides, 3, 3);
+    compute_encoder->set_bytes(strides, 3, 3);
   }
 
-  compute_encoder.set_bytes(K, 4);
+  compute_encoder->set_bytes(K, 4);
   auto group_dims = get_block_dims(D, Tout, B);
   MTL::Size grid_dims = MTL::Size(D, Tout, B);
 
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void conv_1D_gpu(

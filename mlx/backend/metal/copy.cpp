@@ -107,26 +107,26 @@ void copy_gpu_inplace(
   auto kernel = dynamic ? get_dynamic_copy_kernel(d, kernel_name, in, out)
                         : get_copy_kernel(d, kernel_name, in, out);
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
   bool donate_in = in.data_shared_ptr() == nullptr;
 
   inp_offset *= size_of(in.dtype());
   out_offset *= size_of(out.dtype());
 
-  compute_encoder.set_input_array(donate_in ? out : in, 0, inp_offset);
-  compute_encoder.set_output_array(out, 1, out_offset);
+  compute_encoder->set_input_array(donate_in ? out : in, 0, inp_offset);
+  compute_encoder->set_output_array(out, 1, out_offset);
 
   auto thread_group_size = kernel->maxTotalThreadsPerThreadgroup();
   if (ctype == CopyType::General || ctype == CopyType::GeneralGeneral) {
     Strides strides_in{strides_in_.begin(), strides_in_.end()};
     Strides strides_out{strides_out_.begin(), strides_out_.end()};
     if (ndim > 3) {
-      compute_encoder.set_vector_bytes(shape, ndim, 2);
+      compute_encoder->set_vector_bytes(shape, ndim, 2);
     }
-    compute_encoder.set_vector_bytes(strides_in, ndim, 3);
+    compute_encoder->set_vector_bytes(strides_in, ndim, 3);
     if (ctype == CopyType::GeneralGeneral) {
-      compute_encoder.set_vector_bytes(strides_out, ndim, 4);
+      compute_encoder->set_vector_bytes(strides_out, ndim, 4);
     }
 
     size_t dim0 = ndim > 0 ? shape[ndim - 1] : 1;
@@ -138,19 +138,19 @@ void copy_gpu_inplace(
     size_t rest = data_size / (dim0 * dim1);
 
     if (ndim > MAX_COPY_SPECIALIZED_DIMS) {
-      compute_encoder.set_bytes(ndim, 5);
+      compute_encoder->set_bytes(ndim, 5);
       dim0 = (dim0 + work_per_thread - 1) / work_per_thread;
     }
     if (dynamic) {
       if (dynamic_i_offset) {
-        compute_encoder.set_input_array(*dynamic_i_offset, 6);
+        compute_encoder->set_input_array(*dynamic_i_offset, 6);
       } else {
-        compute_encoder.set_bytes(0ll, 6);
+        compute_encoder->set_bytes(0ll, 6);
       }
       if (dynamic_o_offset) {
-        compute_encoder.set_input_array(*dynamic_o_offset, 7);
+        compute_encoder->set_input_array(*dynamic_o_offset, 7);
       } else {
-        compute_encoder.set_bytes(0ll, 7);
+        compute_encoder->set_bytes(0ll, 7);
       }
     }
 
@@ -161,7 +161,7 @@ void copy_gpu_inplace(
 
     auto group_dims = get_block_dims(dim0, dim1, rest);
     MTL::Size grid_dims = MTL::Size(dim0, dim1, rest);
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   } else {
     size_t nthreads = ceildiv(out.data_size(), work_per_thread);
     if (thread_group_size > nthreads) {
@@ -170,13 +170,13 @@ void copy_gpu_inplace(
     MTL::Size group_dims = MTL::Size(thread_group_size, 1, 1);
     MTL::Size grid_dims;
     if (large) {
-      compute_encoder.set_bytes<int64_t>(out.data_size(), 2);
+      compute_encoder->set_bytes<int64_t>(out.data_size(), 2);
       grid_dims = get_2d_grid_dims(out.shape(), out.strides(), work_per_thread);
     } else {
-      compute_encoder.set_bytes<int>(out.data_size(), 2);
+      compute_encoder->set_bytes<int>(out.data_size(), 2);
       grid_dims = MTL::Size(nthreads, 1, 1);
     }
-    compute_encoder.dispatch_threads(grid_dims, group_dims);
+    compute_encoder->dispatch_threads(grid_dims, group_dims);
   }
 }
 
@@ -191,11 +191,11 @@ void fill_gpu(const array& val, array& out, const Stream& s) {
   std::string kernel_name = large ? "s2" : (work_per_thread > 1 ? "sn" : "s");
   concatenate(kernel_name, "_copy", type_to_name(val), type_to_name(out));
   auto kernel = get_copy_kernel(d, kernel_name, val, out);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
 
-  compute_encoder.set_input_array(val, 0);
-  compute_encoder.set_output_array(out, 1);
+  compute_encoder->set_input_array(val, 0);
+  compute_encoder->set_output_array(out, 1);
 
   auto thread_group_size = kernel->maxTotalThreadsPerThreadgroup();
   size_t nthreads = ceildiv(out.data_size(), work_per_thread);
@@ -205,13 +205,13 @@ void fill_gpu(const array& val, array& out, const Stream& s) {
   MTL::Size group_dims = MTL::Size(thread_group_size, 1, 1);
   MTL::Size grid_dims;
   if (large) {
-    compute_encoder.set_bytes<int64_t>(out.data_size(), 2);
+    compute_encoder->set_bytes<int64_t>(out.data_size(), 2);
     grid_dims = get_2d_grid_dims(out.shape(), out.strides(), work_per_thread);
   } else {
-    compute_encoder.set_bytes<int>(out.data_size(), 2);
+    compute_encoder->set_bytes<int>(out.data_size(), 2);
     grid_dims = MTL::Size(nthreads, 1, 1);
   }
-  compute_encoder.dispatch_threads(grid_dims, group_dims);
+  compute_encoder->dispatch_threads(grid_dims, group_dims);
 }
 
 void reshape_gpu(const array& in, array& out, Stream s) {

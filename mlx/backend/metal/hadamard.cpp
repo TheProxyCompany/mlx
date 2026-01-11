@@ -132,32 +132,32 @@ void hadamard_mn_contiguous(
 
   // Launch the strided transform for n1
   if (n1 > 1) {
-    auto& compute_encoder = d.get_command_encoder(s.index);
+    auto compute_encoder = d.get_command_encoder(s.index);
     auto kernel = d.get_kernel("n1" + kname, lib);
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(x, 0);
-    compute_encoder.set_output_array(y, 1);
-    compute_encoder.set_bytes(scale_n1, 2);
-    compute_encoder.dispatch_threads(grid_dims_n1, group_dims_n1);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(x, 0);
+    compute_encoder->set_output_array(y, 1);
+    compute_encoder->set_bytes(scale_n1, 2);
+    compute_encoder->dispatch_threads(grid_dims_n1, group_dims_n1);
   }
 
   // Launch the transform for n2
-  auto& compute_encoder = d.get_command_encoder(s.index);
+  auto compute_encoder = d.get_command_encoder(s.index);
   auto kernel = d.get_kernel("n2" + kname, lib);
-  compute_encoder.set_compute_pipeline_state(kernel);
-  compute_encoder.set_input_array(n1 > 1 ? y : x, 0);
-  compute_encoder.set_output_array(y, 1);
-  compute_encoder.set_bytes(scale_n2, 2);
-  compute_encoder.dispatch_threads(grid_dims_n2, group_dims_n2);
+  compute_encoder->set_compute_pipeline_state(kernel);
+  compute_encoder->set_input_array(n1 > 1 ? y : x, 0);
+  compute_encoder->set_output_array(y, 1);
+  compute_encoder->set_bytes(scale_n2, 2);
+  compute_encoder->dispatch_threads(grid_dims_n2, group_dims_n2);
 
   // Launch the strided transform for m
   if (m > 1) {
     auto kernel = d.get_kernel("m" + kname, lib);
-    compute_encoder.set_compute_pipeline_state(kernel);
-    compute_encoder.set_input_array(y, 0);
-    compute_encoder.set_output_array(y, 1);
-    compute_encoder.set_bytes(scale_m, 2);
-    compute_encoder.dispatch_threads(grid_dims_m, group_dims_m);
+    compute_encoder->set_compute_pipeline_state(kernel);
+    compute_encoder->set_input_array(y, 0);
+    compute_encoder->set_output_array(y, 1);
+    compute_encoder->set_bytes(scale_m, 2);
+    compute_encoder->dispatch_threads(grid_dims_m, group_dims_m);
   }
 }
 

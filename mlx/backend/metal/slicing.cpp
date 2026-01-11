@@ -31,8 +31,8 @@ void concatenate_gpu(
   flags.col_contiguous = false;
   flags.contiguous = false;
   auto& d = metal::device(s.device);
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  auto concurrent_ctx = compute_encoder.start_concurrent();
+  auto compute_encoder = d.get_command_encoder(s.index);
+  auto concurrent_ctx = compute_encoder->start_concurrent();
   for (int i = 0; i < inputs.size(); i++) {
     array out_slice(inputs[i].shape(), out.dtype(), nullptr, {});
     size_t data_offset = strides[axis] * sizes[i];
@@ -83,16 +83,16 @@ array compute_dynamic_offset(
   });
   auto kernel = d.get_kernel(lib_name, lib);
 
-  auto& compute_encoder = d.get_command_encoder(s.index);
-  compute_encoder.set_compute_pipeline_state(kernel);
-  compute_encoder.set_input_array(indices, 0);
-  compute_encoder.set_output_array(offset, 1);
-  compute_encoder.set_vector_bytes(strides, 2);
-  compute_encoder.set_vector_bytes(axes, 3);
+  auto compute_encoder = d.get_command_encoder(s.index);
+  compute_encoder->set_compute_pipeline_state(kernel);
+  compute_encoder->set_input_array(indices, 0);
+  compute_encoder->set_output_array(offset, 1);
+  compute_encoder->set_vector_bytes(strides, 2);
+  compute_encoder->set_vector_bytes(axes, 3);
   int n_axes = axes.size();
-  compute_encoder.set_bytes(n_axes, 4);
+  compute_encoder->set_bytes(n_axes, 4);
   MTL::Size dims = MTL::Size(1, 1, 1);
-  compute_encoder.dispatch_threads(dims, dims);
+  compute_encoder->dispatch_threads(dims, dims);
   return offset;
 }
 
