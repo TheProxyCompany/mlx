@@ -429,17 +429,20 @@ MTL::CommandQueue* Device::get_queue(Stream stream) {
 
 bool Device::command_buffer_needs_commit(int index) {
   auto* stream = get_stream_ptr(index);
+  std::lock_guard<std::recursive_mutex> lock(stream->encoder_mtx);
   return (stream->buffer_ops > max_ops_per_buffer_) ||
       ((stream->buffer_sizes >> 20) > max_mb_per_buffer_);
 }
 
 MTL::CommandBuffer* Device::get_command_buffer(int index) {
   auto* stream = get_stream_ptr(index);
+  std::lock_guard<std::recursive_mutex> lock(stream->encoder_mtx);
   return ensure_command_buffer(*stream);
 }
 
 void Device::commit_command_buffer(int index) {
   auto* stream = get_stream_ptr(index);
+  std::lock_guard<std::recursive_mutex> lock(stream->encoder_mtx);
   stream->buffer->commit();
   stream->buffer->release();
   stream->buffer = nullptr;
