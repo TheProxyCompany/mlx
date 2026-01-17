@@ -17,8 +17,8 @@ void KeySequence::seed(uint64_t seed) {
   key_ = key((seed));
 }
 
-array KeySequence::next() {
-  auto out = split(key_);
+array KeySequence::next(StreamOrDevice s /* = {} */) {
+  auto out = split(key_, s);
   key_ = out.first;
   return out.second;
 }
@@ -38,7 +38,7 @@ array bits(
     int width /* 4 */,
     const std::optional<array>& key_ /*= nullopt */,
     StreamOrDevice s /* = {} */) {
-  auto key = key_ ? *key_ : KeySequence::default_().next();
+  auto key = key_ ? *key_ : KeySequence::default_().next(s);
   if (key.dtype() != uint32) {
     std::ostringstream msg;
     msg << "[bits] Expected key type uint32 but received " << key.dtype()

@@ -6,7 +6,6 @@
 #include <optional>
 
 #include "mlx/array.h"
-#include "mlx/stream.h"
 #include "mlx/utils.h"
 
 namespace mlx::core::random {
@@ -16,7 +15,7 @@ class KeySequence {
   explicit KeySequence(uint64_t seed);
 
   void seed(uint64_t seed);
-  array next();
+  array next(StreamOrDevice s = {});
 
   // static default
   static KeySequence& default_() {
